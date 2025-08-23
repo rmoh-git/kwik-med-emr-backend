@@ -1,0 +1,474 @@
+{
+  "timestamp": "2025-08-23T17:35:59.301183",
+  "summary": {
+    "total_tests": 19,
+    "passed": 19,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "created_resources": {
+    "patients": [
+      "cae2a3db-5273-4a78-904c-3694f8bc581c",
+      "ba642d3e-06aa-4d40-b63e-90a92b3d6a77"
+    ],
+    "sessions": [
+      "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4"
+    ],
+    "recordings": [
+      "5b7ed48e-d67e-49d6-8478-8225b9e30fb4"
+    ],
+    "analyses": []
+  },
+  "detailed_results": [
+    {
+      "test": "Health Check",
+      "passed": true,
+      "details": "Status: 200, Response: {'status': 'healthy', 'version': '0.1.0'}",
+      "response_data": null,
+      "timestamp": "2025-08-23T17:35:59.136094"
+    },
+    {
+      "test": "Root Endpoint",
+      "passed": true,
+      "details": "Status: 200, Response: {'message': 'Welcome to Horizon 1000 Health Provider API', 'version': '0.1.0', 'docs_url': '/docs'}",
+      "response_data": null,
+      "timestamp": "2025-08-23T17:35:59.138823"
+    },
+    {
+      "test": "Create Patient 1",
+      "passed": true,
+      "details": "Created patient with ID: cae2a3db-5273-4a78-904c-3694f8bc581c, MRN: MRN-38ACD1D5C807",
+      "response_data": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1980-05-15T00:00:00",
+        "gender": "male",
+        "phone": "+1234567890",
+        "email": "john.doe@example.com",
+        "address": "123 Main St, Anytown, USA",
+        "emergency_contact_name": null,
+        "emergency_contact_phone": null,
+        "medical_record_number": "MRN-38ACD1D5C807",
+        "id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "created_at": "2025-08-23T08:35:59.143382-07:00",
+        "updated_at": "2025-08-23T08:35:59.143382-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.149639"
+    },
+    {
+      "test": "Create Patient 2",
+      "passed": true,
+      "details": "Created patient with ID: ba642d3e-06aa-4d40-b63e-90a92b3d6a77, MRN: MRN-514BC3A7028D",
+      "response_data": {
+        "first_name": "Jane",
+        "last_name": "Smith",
+        "date_of_birth": "1992-08-22T00:00:00",
+        "gender": "female",
+        "phone": "+1987654321",
+        "email": "jane.smith@example.com",
+        "address": null,
+        "emergency_contact_name": null,
+        "emergency_contact_phone": null,
+        "medical_record_number": "MRN-514BC3A7028D",
+        "id": "ba642d3e-06aa-4d40-b63e-90a92b3d6a77",
+        "created_at": "2025-08-23T08:35:59.153107-07:00",
+        "updated_at": "2025-08-23T08:35:59.153107-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.159753"
+    },
+    {
+      "test": "Get Patient",
+      "passed": true,
+      "details": "Retrieved patient: John Doe",
+      "response_data": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1980-05-15T00:00:00",
+        "gender": "male",
+        "phone": "+1234567890",
+        "email": "john.doe@example.com",
+        "address": "123 Main St, Anytown, USA",
+        "emergency_contact_name": null,
+        "emergency_contact_phone": null,
+        "medical_record_number": "MRN-38ACD1D5C807",
+        "id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "created_at": "2025-08-23T08:35:59.143382-07:00",
+        "updated_at": "2025-08-23T08:35:59.143382-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.166631"
+    },
+    {
+      "test": "Search Patients",
+      "passed": true,
+      "details": "Found 4 patients",
+      "response_data": {
+        "patients": [
+          {
+            "first_name": "John",
+            "last_name": "Doe",
+            "date_of_birth": "1980-05-15T00:00:00",
+            "gender": "male",
+            "phone": "+1111111111",
+            "email": "john.doe@example.com",
+            "address": "456 Oak Ave, Newtown, USA",
+            "emergency_contact_name": null,
+            "emergency_contact_phone": null,
+            "medical_record_number": "MRN-3F95F763212F",
+            "id": "60bf7683-53d7-45e5-9462-642ff6d5c04c",
+            "created_at": "2025-08-23T08:23:44.289614-07:00",
+            "updated_at": "2025-08-23T08:23:44.343904-07:00"
+          },
+          {
+            "first_name": "John",
+            "last_name": "Doe",
+            "date_of_birth": "1980-05-15T00:00:00",
+            "gender": "male",
+            "phone": "+1111111111",
+            "email": "john.doe@example.com",
+            "address": "456 Oak Ave, Newtown, USA",
+            "emergency_contact_name": null,
+            "emergency_contact_phone": null,
+            "medical_record_number": "MRN-3E2F5F5F8B62",
+            "id": "7c6fe392-25e1-4554-a39b-43e2863de65c",
+            "created_at": "2025-08-23T08:32:09.477741-07:00",
+            "updated_at": "2025-08-23T08:32:09.519556-07:00"
+          },
+          {
+            "first_name": "John",
+            "last_name": "Doe",
+            "date_of_birth": "1980-05-15T00:00:00",
+            "gender": "male",
+            "phone": "+1111111111",
+            "email": "john.doe@example.com",
+            "address": "456 Oak Ave, Newtown, USA",
+            "emergency_contact_name": null,
+            "emergency_contact_phone": null,
+            "medical_record_number": "MRN-6AB8B795F7FF",
+            "id": "3908a2db-b71b-4a07-8ca9-a55fd9181dc0",
+            "created_at": "2025-08-23T08:35:02.643619-07:00",
+            "updated_at": "2025-08-23T08:35:02.695050-07:00"
+          },
+          {
+            "first_name": "John",
+            "last_name": "Doe",
+            "date_of_birth": "1980-05-15T00:00:00",
+            "gender": "male",
+            "phone": "+1234567890",
+            "email": "john.doe@example.com",
+            "address": "123 Main St, Anytown, USA",
+            "emergency_contact_name": null,
+            "emergency_contact_phone": null,
+            "medical_record_number": "MRN-38ACD1D5C807",
+            "id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+            "created_at": "2025-08-23T08:35:59.143382-07:00",
+            "updated_at": "2025-08-23T08:35:59.143382-07:00"
+          }
+        ],
+        "total": 4,
+        "limit": 10,
+        "offset": 0
+      },
+      "timestamp": "2025-08-23T17:35:59.177269"
+    },
+    {
+      "test": "List Patients",
+      "passed": true,
+      "details": "Retrieved 5 patients",
+      "response_data": [
+        {
+          "first_name": "Jane",
+          "last_name": "Smith",
+          "date_of_birth": "1992-08-22T00:00:00",
+          "gender": "female",
+          "phone": "+1987654321",
+          "email": "jane.smith@example.com",
+          "address": null,
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "medical_record_number": "MRN-A74BD8127647",
+          "id": "e3b36a47-e40a-4eee-91d7-e82131ee58a2",
+          "created_at": "2025-08-23T08:23:44.305281-07:00",
+          "updated_at": "2025-08-23T08:23:44.305281-07:00"
+        },
+        {
+          "first_name": "John",
+          "last_name": "Doe",
+          "date_of_birth": "1980-05-15T00:00:00",
+          "gender": "male",
+          "phone": "+1111111111",
+          "email": "john.doe@example.com",
+          "address": "456 Oak Ave, Newtown, USA",
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "medical_record_number": "MRN-3F95F763212F",
+          "id": "60bf7683-53d7-45e5-9462-642ff6d5c04c",
+          "created_at": "2025-08-23T08:23:44.289614-07:00",
+          "updated_at": "2025-08-23T08:23:44.343904-07:00"
+        },
+        {
+          "first_name": "Jane",
+          "last_name": "Smith",
+          "date_of_birth": "1992-08-22T00:00:00",
+          "gender": "female",
+          "phone": "+1987654321",
+          "email": "jane.smith@example.com",
+          "address": null,
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "medical_record_number": "MRN-3253257C9879",
+          "id": "2de5a10f-82a8-4b04-9913-1298386d588e",
+          "created_at": "2025-08-23T08:32:09.490568-07:00",
+          "updated_at": "2025-08-23T08:32:09.490568-07:00"
+        },
+        {
+          "first_name": "John",
+          "last_name": "Doe",
+          "date_of_birth": "1980-05-15T00:00:00",
+          "gender": "male",
+          "phone": "+1111111111",
+          "email": "john.doe@example.com",
+          "address": "456 Oak Ave, Newtown, USA",
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "medical_record_number": "MRN-3E2F5F5F8B62",
+          "id": "7c6fe392-25e1-4554-a39b-43e2863de65c",
+          "created_at": "2025-08-23T08:32:09.477741-07:00",
+          "updated_at": "2025-08-23T08:32:09.519556-07:00"
+        },
+        {
+          "first_name": "Jane",
+          "last_name": "Smith",
+          "date_of_birth": "1992-08-22T00:00:00",
+          "gender": "female",
+          "phone": "+1987654321",
+          "email": "jane.smith@example.com",
+          "address": null,
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "medical_record_number": "MRN-7DCC8D03166E",
+          "id": "fea47bd5-10fb-4167-8bc1-d90a8bc04f6b",
+          "created_at": "2025-08-23T08:35:02.656500-07:00",
+          "updated_at": "2025-08-23T08:35:02.656500-07:00"
+        }
+      ],
+      "timestamp": "2025-08-23T17:35:59.184430"
+    },
+    {
+      "test": "Update Patient",
+      "passed": true,
+      "details": "Updated patient phone to +1111111111",
+      "response_data": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1980-05-15T00:00:00",
+        "gender": "male",
+        "phone": "+1111111111",
+        "email": "john.doe@example.com",
+        "address": "456 Oak Ave, Newtown, USA",
+        "emergency_contact_name": null,
+        "emergency_contact_phone": null,
+        "medical_record_number": "MRN-38ACD1D5C807",
+        "id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "created_at": "2025-08-23T08:35:59.143382-07:00",
+        "updated_at": "2025-08-23T08:35:59.188242-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.197136"
+    },
+    {
+      "test": "Create Session",
+      "passed": true,
+      "details": "Created session with ID: 8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+      "response_data": {
+        "patient_id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "practitioner_name": "Dr. Sarah Wilson",
+        "practitioner_id": "PRAC001",
+        "visit_type": "General Consultation",
+        "chief_complaint": "Regular checkup and health assessment",
+        "notes": null,
+        "id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "status": "active",
+        "created_at": "2025-08-23T08:35:59.200663-07:00",
+        "updated_at": "2025-08-23T08:35:59.200663-07:00",
+        "ended_at": null
+      },
+      "timestamp": "2025-08-23T17:35:59.210012"
+    },
+    {
+      "test": "Get Session",
+      "passed": true,
+      "details": "Retrieved session for practitioner: Dr. Sarah Wilson",
+      "response_data": {
+        "patient_id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "practitioner_name": "Dr. Sarah Wilson",
+        "practitioner_id": "PRAC001",
+        "visit_type": "General Consultation",
+        "chief_complaint": "Regular checkup and health assessment",
+        "notes": null,
+        "id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "status": "active",
+        "created_at": "2025-08-23T08:35:59.200663-07:00",
+        "updated_at": "2025-08-23T08:35:59.200663-07:00",
+        "ended_at": null
+      },
+      "timestamp": "2025-08-23T17:35:59.216561"
+    },
+    {
+      "test": "Get Patient Sessions",
+      "passed": true,
+      "details": "Found 1 sessions for patient",
+      "response_data": {
+        "sessions": [
+          {
+            "patient_id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+            "practitioner_name": "Dr. Sarah Wilson",
+            "practitioner_id": "PRAC001",
+            "visit_type": "General Consultation",
+            "chief_complaint": "Regular checkup and health assessment",
+            "notes": null,
+            "id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+            "status": "active",
+            "created_at": "2025-08-23T08:35:59.200663-07:00",
+            "updated_at": "2025-08-23T08:35:59.200663-07:00",
+            "ended_at": null
+          }
+        ],
+        "total": 1,
+        "limit": 10,
+        "offset": 0
+      },
+      "timestamp": "2025-08-23T17:35:59.226345"
+    },
+    {
+      "test": "Update Session",
+      "passed": true,
+      "details": "Added notes to session",
+      "response_data": {
+        "patient_id": "cae2a3db-5273-4a78-904c-3694f8bc581c",
+        "practitioner_name": "Dr. Sarah Wilson",
+        "practitioner_id": "PRAC001",
+        "visit_type": "General Consultation",
+        "chief_complaint": "Regular checkup and health assessment",
+        "notes": "Patient appears healthy. Recommended regular exercise.",
+        "id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "status": "active",
+        "created_at": "2025-08-23T08:35:59.200663-07:00",
+        "updated_at": "2025-08-23T08:35:59.229872-07:00",
+        "ended_at": null
+      },
+      "timestamp": "2025-08-23T17:35:59.237947"
+    },
+    {
+      "test": "Start Recording",
+      "passed": true,
+      "details": "Started recording with ID: 5b7ed48e-d67e-49d6-8478-8225b9e30fb4",
+      "response_data": {
+        "session_id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "file_name": "recording_8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4_20250823_083559.wav",
+        "file_path": "",
+        "id": "5b7ed48e-d67e-49d6-8478-8225b9e30fb4",
+        "status": "recording",
+        "duration_seconds": null,
+        "file_size_bytes": null,
+        "transcript": null,
+        "transcript_segments": null,
+        "processing_error": null,
+        "created_at": "2025-08-23T08:35:59.242052-07:00",
+        "updated_at": "2025-08-23T08:35:59.242052-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.250650"
+    },
+    {
+      "test": "Get Recording",
+      "passed": true,
+      "details": "Retrieved recording with status: recording",
+      "response_data": {
+        "session_id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "file_name": "recording_8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4_20250823_083559.wav",
+        "file_path": "",
+        "id": "5b7ed48e-d67e-49d6-8478-8225b9e30fb4",
+        "status": "recording",
+        "duration_seconds": null,
+        "file_size_bytes": null,
+        "transcript": null,
+        "transcript_segments": null,
+        "processing_error": null,
+        "created_at": "2025-08-23T08:35:59.242052-07:00",
+        "updated_at": "2025-08-23T08:35:59.242052-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.256822"
+    },
+    {
+      "test": "Get Session Recordings",
+      "passed": true,
+      "details": "Found 1 recordings for session",
+      "response_data": [
+        {
+          "session_id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+          "file_name": "recording_8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4_20250823_083559.wav",
+          "file_path": "",
+          "id": "5b7ed48e-d67e-49d6-8478-8225b9e30fb4",
+          "status": "recording",
+          "duration_seconds": null,
+          "file_size_bytes": null,
+          "transcript": null,
+          "transcript_segments": null,
+          "processing_error": null,
+          "created_at": "2025-08-23T08:35:59.242052-07:00",
+          "updated_at": "2025-08-23T08:35:59.242052-07:00"
+        }
+      ],
+      "timestamp": "2025-08-23T17:35:59.264574"
+    },
+    {
+      "test": "Stop Recording",
+      "passed": true,
+      "details": "Stopped recording, status: stopped",
+      "response_data": {
+        "session_id": "8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4",
+        "file_name": "recording_8de2b4d4-93fe-4ee9-b05f-a31b3aa00fd4_20250823_083559.wav",
+        "file_path": "",
+        "id": "5b7ed48e-d67e-49d6-8478-8225b9e30fb4",
+        "status": "stopped",
+        "duration_seconds": null,
+        "file_size_bytes": null,
+        "transcript": null,
+        "transcript_segments": null,
+        "processing_error": null,
+        "created_at": "2025-08-23T08:35:59.242052-07:00",
+        "updated_at": "2025-08-23T08:35:59.268044-07:00"
+      },
+      "timestamp": "2025-08-23T17:35:59.275946"
+    },
+    {
+      "test": "Create Analysis",
+      "passed": true,
+      "details": "Correctly rejected analysis creation - no transcript available (expected behavior)",
+      "response_data": null,
+      "timestamp": "2025-08-23T17:35:59.283748"
+    },
+    {
+      "test": "Get Session Analyses",
+      "passed": true,
+      "details": "Found 0 analyses for session",
+      "response_data": {
+        "analyses": [],
+        "total": 0,
+        "limit": 10,
+        "offset": 0
+      },
+      "timestamp": "2025-08-23T17:35:59.292971"
+    },
+    {
+      "test": "Get Patient Analyses",
+      "passed": true,
+      "details": "Found 0 analyses for patient",
+      "response_data": {
+        "analyses": [],
+        "total": 0,
+        "limit": 10,
+        "offset": 0
+      },
+      "timestamp": "2025-08-23T17:35:59.300719"
+    }
+  ]
+}

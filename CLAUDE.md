@@ -1,0 +1,1 @@
+=> Always first show me the briefest plan before implementation.
