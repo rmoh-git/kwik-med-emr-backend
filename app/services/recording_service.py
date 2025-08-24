@@ -14,6 +14,7 @@ from app.schemas.recording import (
 from app.models.recording import RecordingStatusEnum
 from app.models.session import SessionStatusEnum
 from app.services.audio_service import audio_service
+from app.core.config import settings
 
 
 class RecordingService:
@@ -110,11 +111,11 @@ class RecordingService:
         
         # Validate file type
         if not audio_service.validate_audio_file(filename):
-            raise ValueError(f"Invalid file type. Allowed types: {', '.join(audio_service.settings.ALLOWED_AUDIO_EXTENSIONS)}")
+            raise ValueError(f"Invalid file type. Allowed types: {', '.join(settings.ALLOWED_AUDIO_EXTENSIONS)}")
         
         # Check file size
-        if len(file_content) > audio_service.settings.MAX_FILE_SIZE:
-            raise ValueError(f"File too large. Maximum size: {audio_service.settings.MAX_FILE_SIZE} bytes")
+        if len(file_content) > settings.MAX_FILE_SIZE:
+            raise ValueError(f"File too large. Maximum size: {settings.MAX_FILE_SIZE} bytes")
         
         # This would be handled by audio_service.save_audio_file in the endpoint
         # Return the recording for now

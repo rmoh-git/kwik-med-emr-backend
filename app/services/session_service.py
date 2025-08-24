@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories.session_repository import SessionRepository
 from app.repositories.patient_repository import PatientRepository
+from app.repositories.practitioner_repository import PractitionerRepository
 from app.schemas.session import SessionCreate, SessionUpdate, SessionResponse, SessionListResponse
 from app.models.session import SessionStatusEnum
 
@@ -14,6 +15,7 @@ class SessionService:
         self.db = db
         self.session_repo = SessionRepository(db)
         self.patient_repo = PatientRepository(db)
+        self.practitioner_repo = PractitionerRepository(db)
     
     def create_session(self, session_data: SessionCreate) -> SessionResponse:
         """Create a new session"""
@@ -21,13 +23,21 @@ class SessionService:
         if not self.patient_repo.exists(session_data.patient_id):
             raise ValueError("Patient not found")
         
+        # Verify practitioner exists and get practitioner info
+        practitioner = self.practitioner_repo.get_by_id(session_data.practitioner_id)
+        if not practitioner:
+            raise ValueError("Practitioner not found")
+        
         # Check if patient has an active session
         active_session = self.session_repo.get_active_session_by_patient(session_data.patient_id)
         if active_session:
             raise ValueError("Patient already has an active session")
         
-        # Create the session
+        # Create the session with inferred practitioner information
         session_dict = session_data.model_dump()
+        session_dict["practitioner_name"] = f"{practitioner.first_name} {practitioner.last_name}"
+        session_dict["practitioner_id"] = str(practitioner.id)
+        
         session = self.session_repo.create(session_dict)
         return SessionResponse.model_validate(session)
     

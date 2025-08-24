@@ -37,7 +37,7 @@ async def create_analysis(
     except ValueError as e:
         if "Session not found" in str(e):
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND, 
                 detail=str(e)
             )
         else:

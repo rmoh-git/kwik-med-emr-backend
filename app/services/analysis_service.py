@@ -13,8 +13,7 @@ from app.schemas.analysis import AnalysisResult, DiagnosisRecommendation, Treatm
 
 class AnalysisService:
     def __init__(self):
-        if settings.OPENAI_API_KEY:
-            openai.api_key = settings.OPENAI_API_KEY
+        self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
     
     def _build_context_prompt(self, session: SessionModel, include_history: bool = True) -> str:
         """Build context prompt for AI analysis"""
@@ -101,7 +100,7 @@ Previous Visit ({session.created_at.strftime('%Y-%m-%d')}):
     
     async def perform_analysis(self, analysis: Analysis, db: Session) -> bool:
         """Perform AI analysis using OpenAI"""
-        if not settings.OPENAI_API_KEY:
+        if not self.client:
             analysis.status = AnalysisStatusEnum.FAILED
             analysis.error_message = "OpenAI API key not configured"
             db.commit()
@@ -125,7 +124,7 @@ Previous Visit ({session.created_at.strftime('%Y-%m-%d')}):
             user_prompt = f"{context}\n\n{analysis.prompt_context or ''}"
             
             # Call OpenAI API
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=settings.OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},

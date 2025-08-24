@@ -6,11 +6,14 @@ from enum import Enum
 
 
 class RecordingStatusEnum(str, Enum):
-    RECORDING = "recording"
-    STOPPED = "stopped"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    RECORDING = "RECORDING"
+    STOPPED = "STOPPED"
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
+    TRANSCRIBING = "TRANSCRIBING"
+    DIARIZING = "DIARIZING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class SpeakerEnum(str, Enum):

@@ -20,8 +20,12 @@ class SessionBase(BaseModel):
     notes: Optional[str] = None
 
 
-class SessionCreate(SessionBase):
-    pass
+class SessionCreate(BaseModel):
+    patient_id: UUID
+    practitioner_id: UUID
+    visit_type: Optional[str] = Field(default="consultation", max_length=100)
+    chief_complaint: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = None
 
 
 class SessionUpdate(BaseModel):

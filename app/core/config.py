@@ -39,10 +39,11 @@ class Settings(BaseSettings):
     # Audio Processing
     WHISPER_MODEL: str = Field(default="whisper-1", description="Whisper model for transcription")
     ENABLE_SPEAKER_DIARIZATION: bool = Field(default=False, description="Enable speaker diarization")
+    HUGGING_FACE_TOKEN: Optional[str] = Field(default=None, description="HuggingFace token for pyannote models")
     
     # CORS
     BACKEND_CORS_ORIGINS: list = Field(
-        default=["http://localhost:3000", "http://localhost:8080"],
+        default=["*"],
         description="List of allowed CORS origins"
     )
     

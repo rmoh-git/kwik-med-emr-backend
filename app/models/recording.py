@@ -8,11 +8,14 @@ import uuid
 
 
 class RecordingStatusEnum(str, enum.Enum):
-    RECORDING = "recording"
-    STOPPED = "stopped"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    RECORDING = "RECORDING"
+    STOPPED = "STOPPED"
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
+    TRANSCRIBING = "TRANSCRIBING"
+    DIARIZING = "DIARIZING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class Recording(Base):
