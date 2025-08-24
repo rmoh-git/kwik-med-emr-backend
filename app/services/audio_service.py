@@ -1,10 +1,8 @@
 import os
-import asyncio
 import logging
 from typing import Optional, List
 from pathlib import Path
 import aiofiles
-import openai
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,38 +14,46 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 try:
-    from pyannote.audio import Pipeline
-    import torch
-    DIARIZATION_AVAILABLE = True
-    logger.info("Pyannote.audio imported successfully")
+    import assemblyai as aai
+    ASSEMBLYAI_AVAILABLE = True
+    logger.info("AssemblyAI SDK imported successfully")
 except ImportError as e:
-    DIARIZATION_AVAILABLE = False
-    Pipeline = None
-    logger.error(f"Failed to import pyannote.audio: {e}")
+    ASSEMBLYAI_AVAILABLE = False
+    aai = None
+    logger.error(f"Failed to import AssemblyAI SDK: {e}")
+
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError as e:
+    OPENAI_AVAILABLE = False
+    openai = None
+    logger.error(f"Failed to import OpenAI: {e}")
 
 
 class AudioService:
     def __init__(self):
         logger.info("Initializing AudioService")
-        self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
-        logger.info(f"OpenAI client initialized: {bool(self.client)}")
         
-        self.diarization_pipeline = None
-        logger.info(f"Diarization available: {DIARIZATION_AVAILABLE}")
+        # Initialize AssemblyAI client
+        if ASSEMBLYAI_AVAILABLE and settings.ASSEMBLYAI_API_KEY:
+            aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
+            logger.info("AssemblyAI client initialized")
+            self.use_assemblyai = settings.USE_ASSEMBLYAI
+        else:
+            logger.warning("AssemblyAI not available or API key not configured")
+            self.use_assemblyai = False
+        
+        # Initialize OpenAI client as fallback
+        if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
+            self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            logger.info("OpenAI client initialized as fallback")
+        else:
+            self.openai_client = None
+            logger.warning("OpenAI not available or API key not configured")
+        
+        logger.info(f"Using AssemblyAI: {self.use_assemblyai}")
         logger.info(f"Speaker diarization enabled: {settings.ENABLE_SPEAKER_DIARIZATION}")
-        logger.info(f"HuggingFace token present: {bool(getattr(settings, 'HUGGING_FACE_TOKEN', None))}")
-        
-        if DIARIZATION_AVAILABLE and settings.ENABLE_SPEAKER_DIARIZATION:
-            try:
-                logger.info("Loading diarization pipeline...")
-                self.diarization_pipeline = Pipeline.from_pretrained(
-                    "pyannote/speaker-diarization-3.1",
-                    use_auth_token=getattr(settings, 'HUGGING_FACE_TOKEN', None)
-                )
-                logger.info("Diarization pipeline loaded successfully")
-            except Exception as e:
-                logger.error(f"Failed to load diarization pipeline: {e}")
-                self.diarization_pipeline = None
     
     async def save_audio_file(self, file_content: bytes, filename: str) -> str:
         """Save audio file to disk and return file path"""
@@ -75,21 +81,136 @@ class AudioService:
         return str(file_path)
     
     async def transcribe_audio(self, recording: Recording, db: Session) -> Optional[str]:
-        """Transcribe audio file using OpenAI Whisper"""
-        if not self.client:
+        """Transcribe audio file using AssemblyAI or OpenAI Whisper"""
+        logger.info(f"Starting transcription for {recording.file_path}")
+        logger.info(f"Using AssemblyAI: {self.use_assemblyai}")
+        
+        if self.use_assemblyai and ASSEMBLYAI_AVAILABLE:
+            return await self._transcribe_with_assemblyai(recording, db)
+        else:
+            return await self._transcribe_with_openai(recording, db)
+    
+    async def _transcribe_with_assemblyai(self, recording: Recording, db: Session) -> Optional[str]:
+        """Transcribe using AssemblyAI with built-in speaker diarization"""
+        try:
+            logger.info("Starting AssemblyAI transcription...")
+            
+            # Configure transcription settings
+            config = aai.TranscriptionConfig(
+                speaker_labels=settings.ENABLE_SPEAKER_DIARIZATION,
+                speakers_expected=settings.ASSEMBLYAI_SPEAKERS_EXPECTED if settings.ENABLE_SPEAKER_DIARIZATION else None
+            )
+            
+            # Create transcriber
+            transcriber = aai.Transcriber(config=config)
+            
+            # Transcribe the audio file
+            logger.info("Sending file to AssemblyAI...")
+            transcript = transcriber.transcribe(recording.file_path)
+            
+            if transcript.status == aai.TranscriptStatus.error:
+                logger.error(f"AssemblyAI transcription failed: {transcript.error}")
+                recording.status = RecordingStatusEnum.FAILED
+                recording.processing_error = f"AssemblyAI error: {transcript.error}"
+                db.commit()
+                return None
+            
+            # Extract transcript text
+            transcript_text = transcript.text
+            logger.info(f"Transcription completed, length: {len(transcript_text)} characters")
+            
+            # Process segments
+            segments = []
+            if settings.ENABLE_SPEAKER_DIARIZATION and transcript.utterances:
+                logger.info(f"Processing {len(transcript.utterances)} utterances with speaker labels")
+                
+                for utterance in transcript.utterances:
+                    # Map AssemblyAI speaker labels to our enum
+                    if utterance.speaker == "A":
+                        speaker = SpeakerEnum.PRACTITIONER
+                    elif utterance.speaker == "B":
+                        speaker = SpeakerEnum.PATIENT
+                    else:
+                        speaker = SpeakerEnum.UNKNOWN
+                    
+                    segments.append(TranscriptSegment(
+                        text=utterance.text,
+                        speaker=speaker,
+                        start_time=utterance.start / 1000.0,  # Convert ms to seconds
+                        end_time=utterance.end / 1000.0,
+                        confidence=utterance.confidence
+                    ))
+                    logger.info(f"Segment: Speaker {speaker.value} ({utterance.start/1000.0:.2f}s-{utterance.end/1000.0:.2f}s): {utterance.text[:50]}...")
+            
+            else:
+                # No speaker diarization, create segments from words if available
+                if transcript.words:
+                    logger.info("Creating segments from words (no diarization)")
+                    current_segment = {"words": [], "start": None, "end": None}
+                    
+                    for word in transcript.words:
+                        if current_segment["start"] is None:
+                            current_segment["start"] = word.start
+                        current_segment["words"].append(word.text)
+                        current_segment["end"] = word.end
+                        
+                        # Create segment every ~10 seconds or 50 words
+                        if (word.end - current_segment["start"]) > 10000 or len(current_segment["words"]) > 50:
+                            segments.append(TranscriptSegment(
+                                text=" ".join(current_segment["words"]),
+                                speaker=SpeakerEnum.UNKNOWN,
+                                start_time=current_segment["start"] / 1000.0,
+                                end_time=current_segment["end"] / 1000.0,
+                                confidence=0.8  # Default confidence
+                            ))
+                            current_segment = {"words": [], "start": None, "end": None}
+                    
+                    # Add final segment if any words remain
+                    if current_segment["words"]:
+                        segments.append(TranscriptSegment(
+                            text=" ".join(current_segment["words"]),
+                            speaker=SpeakerEnum.UNKNOWN,
+                            start_time=current_segment["start"] / 1000.0,
+                            end_time=current_segment["end"] / 1000.0,
+                            confidence=0.8
+                        ))
+            
+            # Update recording with results
+            recording.transcript = transcript_text
+            recording.transcript_segments = [seg.dict() for seg in segments] if segments else None
+            recording.status = RecordingStatusEnum.COMPLETED
+            recording.processing_error = None
+            
+            # Mark JSON field as modified for SQLAlchemy
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(recording, "transcript_segments")
+            
+            db.commit()
+            logger.info("AssemblyAI transcription completed successfully")
+            
+            return transcript_text
+            
+        except Exception as e:
+            logger.error(f"AssemblyAI transcription failed: {str(e)}", exc_info=True)
+            recording.status = RecordingStatusEnum.FAILED
+            recording.processing_error = str(e)
+            db.commit()
+            return None
+    
+    async def _transcribe_with_openai(self, recording: Recording, db: Session) -> Optional[str]:
+        """Fallback transcription using OpenAI Whisper"""
+        if not self.openai_client:
             recording.status = RecordingStatusEnum.FAILED
             recording.processing_error = "OpenAI API key not configured"
             db.commit()
             return None
         
         try:
-            # Update status to processing
-            recording.status = RecordingStatusEnum.PROCESSING
-            db.commit()
+            logger.info("Starting OpenAI Whisper transcription (fallback)...")
             
             # Transcribe audio
             with open(recording.file_path, 'rb') as audio_file:
-                transcript = self.client.audio.transcriptions.create(
+                transcript = self.openai_client.audio.transcriptions.create(
                     model=settings.WHISPER_MODEL,
                     file=audio_file,
                     response_format="verbose_json",
@@ -105,7 +226,7 @@ class AudioService:
                 for segment in transcript.segments:
                     segments.append(TranscriptSegment(
                         text=segment.text,
-                        speaker=SpeakerEnum.UNKNOWN,  # Default, can be improved with diarization
+                        speaker=SpeakerEnum.UNKNOWN,
                         start_time=segment.start,
                         end_time=segment.end,
                         confidence=getattr(segment, 'avg_logprob', None)
@@ -118,129 +239,21 @@ class AudioService:
             recording.processing_error = None
             
             db.commit()
-            
-            # Perform speaker diarization if enabled and segments available
-            if segments and settings.ENABLE_SPEAKER_DIARIZATION:
-                logger.info("Starting speaker diarization...")
-                diarization_success = await self.perform_speaker_diarization(recording, db)
-                logger.info(f"Speaker diarization result: {diarization_success}")
-            else:
-                logger.info(f"Skipping diarization - segments: {bool(segments)}, enabled: {settings.ENABLE_SPEAKER_DIARIZATION}")
+            logger.info("OpenAI transcription completed")
             
             return transcript_text
             
         except Exception as e:
+            logger.error(f"OpenAI transcription failed: {str(e)}", exc_info=True)
             recording.status = RecordingStatusEnum.FAILED
             recording.processing_error = str(e)
             db.commit()
             return None
     
     async def perform_speaker_diarization(self, recording: Recording, db: Session) -> bool:
-        """Perform speaker diarization using pyannote.audio"""
-        logger.info("Starting perform_speaker_diarization")
-        logger.info(f"Diarization enabled: {settings.ENABLE_SPEAKER_DIARIZATION}")
-        logger.info(f"Pipeline available: {bool(self.diarization_pipeline)}")
-        logger.info(f"Audio file path: {recording.file_path}")
-        
-        if not settings.ENABLE_SPEAKER_DIARIZATION or not self.diarization_pipeline:
-            logger.warning("Diarization skipped - not enabled or pipeline not available")
-            return False
-        
-        try:
-            logger.info("Applying diarization to audio file...")
-            logger.info(f"File path: {recording.file_path}")
-            logger.info(f"File exists: {os.path.exists(recording.file_path)}")
-            
-            if os.path.exists(recording.file_path):
-                logger.info(f"File size: {os.path.getsize(recording.file_path)} bytes")
-                
-            # Check file format
-            file_extension = Path(recording.file_path).suffix.lower()
-            logger.info(f"File extension: {file_extension}")
-            
-            # Apply diarization to the audio file
-            diarization = self.diarization_pipeline(recording.file_path)
-            logger.info("Diarization completed successfully")
-            
-            # Log diarization results
-            speakers_found = set()
-            for turn, _, speaker in diarization.itertracks(yield_label=True):
-                speakers_found.add(speaker)
-                logger.info(f"Speaker {speaker}: {turn.start:.2f}s - {turn.end:.2f}s")
-            
-            logger.info(f"Total speakers found: {len(speakers_found)}")
-            logger.info(f"Transcript segments available: {bool(recording.transcript_segments)}")
-            
-            if recording.transcript_segments:
-                logger.info(f"Processing {len(recording.transcript_segments)} transcript segments")
-                
-                # Map speakers to segments based on timestamps
-                speaker_map = {}
-                speaker_count = 0
-                segments_updated = 0
-                
-                for i, segment_data in enumerate(recording.transcript_segments):
-                    start_time = segment_data.get('start_time', 0)
-                    end_time = segment_data.get('end_time', 0)
-                    
-                    logger.info(f"Segment {i}: {start_time:.2f}s - {end_time:.2f}s: '{segment_data.get('text', '')[:50]}...'")
-                    
-                    # Find the dominant speaker for this segment
-                    segment_speakers = {}
-                    for turn, _, speaker in diarization.itertracks(yield_label=True):
-                        # Check for overlap with more flexible conditions
-                        overlap_start = max(turn.start, start_time)
-                        overlap_end = min(turn.end, end_time)
-                        overlap = overlap_end - overlap_start
-                        
-                        if overlap > 0:
-                            segment_speakers[speaker] = segment_speakers.get(speaker, 0) + overlap
-                            logger.info(f"  Speaker {speaker} overlap: {overlap:.2f}s")
-                    
-                    if segment_speakers:
-                        # Get speaker with most overlap
-                        dominant_speaker = max(segment_speakers, key=segment_speakers.get)
-                        logger.info(f"  Dominant speaker: {dominant_speaker}")
-                        
-                        # Map speaker labels to enum values
-                        if dominant_speaker not in speaker_map:
-                            if speaker_count == 0:
-                                speaker_map[dominant_speaker] = SpeakerEnum.PRACTITIONER
-                            elif speaker_count == 1:
-                                speaker_map[dominant_speaker] = SpeakerEnum.PATIENT
-                            else:
-                                speaker_map[dominant_speaker] = SpeakerEnum.UNKNOWN
-                            speaker_count += 1
-                            logger.info(f"  Mapped {dominant_speaker} to {speaker_map[dominant_speaker].value}")
-                        
-                        old_speaker = segment_data.get('speaker', 'unknown')
-                        segment_data['speaker'] = speaker_map[dominant_speaker].value
-                        logger.info(f"  Updated speaker: {old_speaker} -> {segment_data['speaker']}")
-                        segments_updated += 1
-                    else:
-                        logger.warning(f"  No speaker overlap found for segment {i}")
-                        segment_data['speaker'] = SpeakerEnum.UNKNOWN.value
-                
-                logger.info(f"Updated {segments_updated} out of {len(recording.transcript_segments)} segments")
-                
-                # Mark the JSON field as modified so SQLAlchemy detects the change
-                from sqlalchemy.orm.attributes import flag_modified
-                flag_modified(recording, "transcript_segments")
-                
-                db.commit()
-                logger.info("Database committed successfully")
-                
-                # Verify the update by checking the database
-                db.refresh(recording)
-                logger.info(f"Verification - First segment speaker after commit: {recording.transcript_segments[0].get('speaker', 'NOT_FOUND') if recording.transcript_segments else 'NO_SEGMENTS'}")
-                return True
-            else:
-                logger.warning("No transcript segments to process")
-                return False
-            
-        except Exception as e:
-            logger.error(f"Speaker diarization failed: {str(e)}", exc_info=True)
-            return False
+        """Legacy method - diarization now handled by AssemblyAI"""
+        logger.info("Speaker diarization is now handled directly by AssemblyAI during transcription")
+        return True
     
     def validate_audio_file(self, filename: str) -> bool:
         """Validate if the file is an allowed audio format"""

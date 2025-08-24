@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key for AI analysis")
     OPENAI_MODEL: str = Field(default="gpt-4", description="OpenAI model to use for analysis")
     
+    # AssemblyAI Configuration
+    ASSEMBLYAI_API_KEY: Optional[str] = Field(default=None, description="AssemblyAI API key for transcription and diarization")
+    
     # File Storage
     UPLOAD_DIR: str = Field(default="uploads", description="Directory for file uploads")
     MAX_FILE_SIZE: int = Field(default=100 * 1024 * 1024, description="Maximum file size in bytes (100MB)")
@@ -39,7 +42,9 @@ class Settings(BaseSettings):
     # Audio Processing
     WHISPER_MODEL: str = Field(default="whisper-1", description="Whisper model for transcription")
     ENABLE_SPEAKER_DIARIZATION: bool = Field(default=False, description="Enable speaker diarization")
-    HUGGING_FACE_TOKEN: Optional[str] = Field(default=None, description="HuggingFace token for pyannote models")
+    USE_ASSEMBLYAI: bool = Field(default=True, description="Use AssemblyAI instead of OpenAI for transcription")
+    ASSEMBLYAI_SPEAKERS_EXPECTED: Optional[int] = Field(default=2, description="Expected number of speakers for diarization")
+    HUGGING_FACE_TOKEN: Optional[str] = Field(default=None, description="HuggingFace token for pyannote models (deprecated)")
     
     # CORS
     BACKEND_CORS_ORIGINS: list = Field(
