@@ -21,7 +21,6 @@ class Session(Base):
     practitioner_name = Column(String(100), nullable=False)
     practitioner_id = Column(String(50), nullable=True, index=True)
     visit_type = Column(String(100), nullable=False)
-    chief_complaint = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
     status = Column(Enum(SessionStatusEnum), default=SessionStatusEnum.ACTIVE, nullable=False)
     

@@ -36,7 +36,7 @@ class TreatmentRecommendation(BaseModel):
 
 class AnalysisResult(BaseModel):
     summary: str
-    key_findings: List[str]
+    key_findings: Optional[List[str]] = None  # Made optional for backward compatibility
     diagnoses: Optional[List[DiagnosisRecommendation]] = None
     treatments: Optional[List[TreatmentRecommendation]] = None
     follow_up_recommendations: Optional[List[str]] = None
