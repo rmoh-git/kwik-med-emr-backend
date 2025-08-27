@@ -73,11 +73,15 @@ class HealthcareConsultationService:
         try:
             # Check if session exists
             session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+            logger.info(type(session.patient_id))
+            logger.info(patient_id.lstrip()==str(session.patient_id).lstrip())
             if session:
                 validation_results["session_exists"] = True
                 
                 # Check if session belongs to the specified patient
-                if session.patient_id == patient_id:
+                if str(session.patient_id) == patient_id:
+                    logger.info(session.patient_id)
+                    logger.info(patient_id)
                     validation_results["session_matches_patient"] = True
                 else:
                     validation_results["errors"].append(f"Session {session_id} does not belong to patient {patient_id}")

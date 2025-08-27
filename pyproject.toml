@@ -27,6 +27,7 @@ lancedb = "^0.24.3"
 duckduckgo-search = "^8.1.1"
 pypdf = "^6.0.0"
 ddgs = "^9.5.4"
+aiohttp = "^3.12.15"
 
 [[tool.poetry.source]]
 name = "pytorch"

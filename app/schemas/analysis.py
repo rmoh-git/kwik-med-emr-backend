@@ -47,7 +47,6 @@ class AnalysisResult(BaseModel):
 
 class AnalysisBase(BaseModel):
     session_id: UUID
-    analysis_type: AnalysisTypeEnum
     prompt_context: Optional[str] = None
 
 
@@ -86,6 +85,5 @@ class AnalysisListResponse(BaseModel):
 
 class AnalysisRequest(BaseModel):
     session_id: UUID
-    analysis_type: AnalysisTypeEnum = AnalysisTypeEnum.GENERAL_ANALYSIS
     include_patient_history: bool = Field(default=True)
     custom_prompt: Optional[str] = None

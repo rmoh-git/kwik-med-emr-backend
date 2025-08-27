@@ -81,14 +81,27 @@ class AudioService:
         return str(file_path)
     
     async def transcribe_audio(self, recording: Recording, db: Session) -> Optional[str]:
-        """Transcribe audio file using AssemblyAI or OpenAI Whisper"""
+        """Transcribe audio file using OpenAI Whisper (preferred) or AssemblyAI fallback"""
         logger.info(f"Starting transcription for {recording.file_path}")
-        logger.info(f"Using AssemblyAI: {self.use_assemblyai}")
         
-        if self.use_assemblyai and ASSEMBLYAI_AVAILABLE:
-            return await self._transcribe_with_assemblyai(recording, db)
-        else:
+        # Try OpenAI Whisper first for ambient listening
+        try:
+            logger.info("Attempting transcription with OpenAI Whisper (ambient listening)")
             return await self._transcribe_with_openai(recording, db)
+        except Exception as whisper_error:
+            logger.warning(f"OpenAI Whisper failed: {whisper_error}")
+            
+            # Fallback to AssemblyAI if available
+            if self.use_assemblyai and ASSEMBLYAI_AVAILABLE:
+                logger.info("Falling back to AssemblyAI")
+                try:
+                    return await self._transcribe_with_assemblyai(recording, db)
+                except Exception as aai_error:
+                    logger.error(f"AssemblyAI also failed: {aai_error}")
+                    return None
+            else:
+                logger.error("No transcription service available")
+                return None
     
     async def _transcribe_with_assemblyai(self, recording: Recording, db: Session) -> Optional[str]:
         """Transcribe using AssemblyAI with built-in speaker diarization"""
@@ -206,15 +219,16 @@ class AudioService:
             return None
         
         try:
-            logger.info("Starting OpenAI Whisper transcription (fallback)...")
+            logger.info("Starting OpenAI Whisper transcription for ambient listening...")
             
-            # Transcribe audio
+            # Transcribe audio with enhanced settings for healthcare consultation
             with open(recording.file_path, 'rb') as audio_file:
                 transcript = self.openai_client.audio.transcriptions.create(
                     model=settings.WHISPER_MODEL,
                     file=audio_file,
                     response_format="verbose_json",
-                    timestamp_granularities=["segment"]
+                    timestamp_granularities=["segment"],
+                    prompt="This is a healthcare consultation between a doctor and patient. Please provide accurate transcription of medical terminology."
                 )
             
             # Extract transcript text

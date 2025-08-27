@@ -22,6 +22,12 @@ class PatientBase(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     emergency_contact_name: Optional[str] = Field(None, max_length=100)
     emergency_contact_phone: Optional[str] = Field(None, max_length=20)
+    
+    # Insurance and ID information
+    national_id: Optional[str] = Field(None, max_length=20, description="National ID or SSN")
+    insurance_provider: Optional[str] = Field(None, max_length=100, description="Insurance company name")
+    insurance_policy_number: Optional[str] = Field(None, max_length=50, description="Insurance policy number")
+    insurance_group_number: Optional[str] = Field(None, max_length=50, description="Insurance group number")
 
 
 class PatientCreate(PatientBase):
@@ -39,10 +45,17 @@ class PatientUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     emergency_contact_name: Optional[str] = Field(None, max_length=100)
     emergency_contact_phone: Optional[str] = Field(None, max_length=20)
+    
+    # Insurance and ID information  
+    national_id: Optional[str] = Field(None, max_length=20)
+    insurance_provider: Optional[str] = Field(None, max_length=100)
+    insurance_policy_number: Optional[str] = Field(None, max_length=50)
+    insurance_group_number: Optional[str] = Field(None, max_length=50)
 
 
 class PatientResponse(PatientBase):
     id: UUID
+    medical_record_number: str  # This will come from the @property
     created_at: datetime
     updated_at: datetime
 

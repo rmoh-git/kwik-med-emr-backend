@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.services.consultation_service import consultation_service
-from app.services.live_transcription_service import live_transcription_service
 from app.db.database import get_db
 import logging
 
@@ -69,27 +68,7 @@ class ValidationResponse(BaseModel):
     session_matches_patient: bool
     errors: List[str]
 
-class TranscriptionRequest(BaseModel):
-    room_name: str
-    enable_diarization: bool = True
-
-class TranscriptionResponse(BaseModel):
-    room_name: str
-    session_id: str
-    status: str
-    diarization_enabled: bool
-    started_at: str
-    features: dict
-
-class LiveTranscriptResponse(BaseModel):
-    room_name: str
-    session_id: str
-    status: str
-    started_at: str
-    total_segments: int
-    recent_segments: List[dict]
-    speakers: dict
-    diarization_enabled: bool
+# Simplified consultation models - no live transcription
 
 @router.post("/create", response_model=ConsultationResponse)
 async def create_consultation(
@@ -251,96 +230,7 @@ async def validate_consultation_entities(
             errors=[f"Validation error: {str(e)}"]
         )
 
-@router.post("/{room_name}/transcription/start", response_model=TranscriptionResponse)
-async def start_transcription(room_name: str, enable_diarization: bool = True):
-    """Start live transcription for a consultation room"""
-    
-    try:
-        logger.info(f"Starting transcription for room: {room_name}")
-        
-        # Extract session_id from room_name (format: consultation_<session_id>)
-        session_id = room_name.replace("consultation_", "") if room_name.startswith("consultation_") else room_name
-        
-        transcription_info = await live_transcription_service.start_live_transcription(
-            room_name=room_name,
-            session_id=session_id,
-            enable_diarization=enable_diarization
-        )
-        
-        return TranscriptionResponse(**transcription_info)
-        
-    except Exception as e:
-        logger.error(f"Failed to start transcription: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to start transcription: {str(e)}"
-        )
-
-@router.get("/{room_name}/transcript/live", response_model=LiveTranscriptResponse)
-async def get_live_transcript(room_name: str):
-    """Get current live transcript for a room"""
-    
-    try:
-        transcript = await live_transcription_service.get_live_transcript(room_name)
-        return LiveTranscriptResponse(**transcript)
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to get live transcript: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get live transcript: {str(e)}"
-        )
-
-@router.post("/{room_name}/transcription/stop")
-async def stop_transcription(room_name: str):
-    """Stop live transcription and get final transcript"""
-    
-    try:
-        logger.info(f"Stopping transcription for room: {room_name}")
-        
-        final_transcript = await live_transcription_service.stop_live_transcription(room_name)
-        
-        return {
-            "message": "Transcription stopped successfully",
-            "room_name": room_name,
-            "final_transcript": final_transcript
-        }
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Failed to stop transcription: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to stop transcription: {str(e)}"
-        )
-
-@router.get("/transcriptions/active")
-async def list_active_transcriptions():
-    """List all active transcription sessions"""
-    
-    try:
-        active_transcriptions = live_transcription_service.list_active_transcriptions()
-        
-        return {
-            "active_transcriptions": active_transcriptions,
-            "total_active": len(active_transcriptions)
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to list active transcriptions: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to list active transcriptions: {str(e)}"
-        )
+# Live transcription removed - using simple recording + Whisper approach
 
 @router.get("/health")
 async def consultation_health_check():
@@ -356,8 +246,8 @@ async def consultation_health_check():
             "healthcare_ai_assistant": True,
             "hipaa_compliant": True,
             "entity_validation": True,
-            "live_transcription": True,
-            "speaker_diarization": True,
-            "real_time_processing": True
+            "ambient_recording": True,
+            "whisper_transcription": True,
+            "post_consultation_analysis": True
         }
     }
