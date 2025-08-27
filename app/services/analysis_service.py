@@ -32,20 +32,20 @@ class AnalysisService:
         # Patient information
         patient = session.patient
         context_parts.append(f"""
-PATIENT INFORMATION:
-- Name: {patient.first_name} {patient.last_name}
-- Age: {self._calculate_age(patient.date_of_birth)} years old
-- Gender: {patient.gender.value}
-- Medical Record Number: {patient.medical_record_number or 'N/A'}
-""")
+        PATIENT INFORMATION:
+        - Name: {patient.first_name} {patient.last_name}
+        - Age: {self._calculate_age(patient.date_of_birth)} years old
+        - Gender: {patient.gender.value}
+        - Medical Record Number: {patient.medical_record_number or 'N/A'}
+        """)
         
         # Current session information
         context_parts.append(f"""
-CURRENT SESSION:
-- Visit Type: {session.visit_type}
-- Practitioner: {session.practitioner_name}
-- Session Notes: {session.notes or 'No notes'}
-""")
+        CURRENT SESSION:
+        - Visit Type: {session.visit_type}
+        - Practitioner: {session.practitioner_name}
+        - Session Notes: {session.notes or 'No notes'}
+        """)
         
         # Get transcript from current session
         current_transcript = self._get_session_transcript(session)

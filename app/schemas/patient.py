@@ -22,7 +22,6 @@ class PatientBase(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     emergency_contact_name: Optional[str] = Field(None, max_length=100)
     emergency_contact_phone: Optional[str] = Field(None, max_length=20)
-    medical_record_number: Optional[str] = Field(None, max_length=50)
 
 
 class PatientCreate(PatientBase):
@@ -40,7 +39,6 @@ class PatientUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     emergency_contact_name: Optional[str] = Field(None, max_length=100)
     emergency_contact_phone: Optional[str] = Field(None, max_length=20)
-    medical_record_number: Optional[str] = Field(None, max_length=50)
 
 
 class PatientResponse(PatientBase):
