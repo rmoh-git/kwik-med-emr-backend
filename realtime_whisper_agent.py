@@ -10,7 +10,7 @@ import json
 import io
 import wave
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, AsyncGenerator
 import tempfile
 import os
@@ -68,10 +68,15 @@ class RealTimeWhisperAgent:
             self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
             logger.info("OpenAI Whisper client ready for real-time transcription")
         
-        # Audio settings
+        # Audio settings for continuous processing
         self.sample_rate = 16000  # 16kHz for Whisper
-        self.buffer_duration = 3.0  # 3 seconds buffer
-        self.min_audio_length = 1.0  # Minimum 1 second for transcription
+        self.buffer_duration = 2.0  # Shorter buffer for responsiveness
+        self.min_audio_length = 0.5  # Minimum for transcription
+        
+        # Suggestion filtering for ambient listening
+        self.recent_suggestions = []
+        self.suggestion_cooldown = 10.0  # Don't spam suggestions
+        self.min_confidence = 0.8  # Only surface high-confidence suggestions
         
     async def load_patient_context(self, session_id: str) -> Dict:
         """Load patient context for AI suggestions"""
@@ -137,13 +142,21 @@ class RealTimeWhisperAgent:
     def audio_frame_to_bytes(self, frame: rtc.AudioFrame) -> bytes:
         """Convert AudioFrame to bytes for Whisper"""
         try:
-            # Convert audio frame to numpy array
-            audio_data = np.frombuffer(frame.data, dtype=np.int16)
+            # Handle AudioFrameEvent vs AudioFrame
+            if hasattr(frame, 'frame'):
+                # It's an AudioFrameEvent, get the actual frame
+                actual_frame = frame.frame
+                audio_data = np.frombuffer(actual_frame.data, dtype=np.int16)
+                frame_rate = actual_frame.sample_rate
+            else:
+                # It's a direct AudioFrame
+                audio_data = np.frombuffer(frame.data, dtype=np.int16)
+                frame_rate = frame.sample_rate
             
             # Resample to 16kHz if needed (Whisper requirement)
-            if frame.sample_rate != self.sample_rate:
+            if frame_rate != self.sample_rate:
                 # Simple resampling (for production, use proper resampling)
-                ratio = self.sample_rate / frame.sample_rate
+                ratio = self.sample_rate / frame_rate
                 audio_data = np.interp(
                     np.arange(0, len(audio_data), 1/ratio),
                     np.arange(0, len(audio_data)),
@@ -215,7 +228,11 @@ class RealTimeWhisperAgent:
                     return suggestion
                 
         except Exception as e:
-            logger.error(f"Whisper transcription error: {e}")
+            error_message = str(e)
+            logger.error(f"Whisper transcription error: {error_message}")
+            
+            # Send user-friendly error to frontend
+            await self.send_error_to_frontend(error_message, "transcription_error")
         finally:
             # Clear buffer (keep small overlap)
             if participant_id in self.audio_buffer:
@@ -246,30 +263,20 @@ class RealTimeWhisperAgent:
         self.transcription_buffer.append(transcription_entry)
         
         # Enhanced logging for real-time monitoring
-        logger.info("=" * 80)
-        logger.info(f"🎤 LIVE TRANSCRIPTION | {speaker_type.upper()} ({participant_id})")
-        logger.info(f"📝 SPEECH: \"{text}\"")
-        logger.info(f"⏰ TIME: {timestamp.strftime('%H:%M:%S')}")
-        logger.info("=" * 80)
+        logger.info(f"🎤 {speaker_type.upper()}: \"{text}\" [{timestamp.strftime('%H:%M:%S')}]")
         
         # Keep only last 10 entries
         if len(self.transcription_buffer) > 10:
             self.transcription_buffer = self.transcription_buffer[-10:]
         
-        # Generate AI suggestion
+        # AI is always analyzing - ambient processing
         suggestion = await self.generate_ai_suggestion(text, speaker_type)
         
-        if suggestion:
-            logger.info("🧠 AI ANALYSIS RESULT:")
-            logger.info(f"   💡 SUGGESTION: {suggestion['content']}")
-            logger.info(f"   🚨 PRIORITY: {suggestion['priority'].upper()}")
-            logger.info(f"   📂 CATEGORY: {suggestion['category'].upper()}")
-            logger.info(f"   🎯 TRIGGERED BY: \"{suggestion['triggered_by']}\"")
-            logger.info("-" * 80)
+        # Filter suggestions - only surface valuable ones
+        if suggestion and self.should_surface_suggestion(suggestion):
+            logger.info(f"💡 {suggestion['priority'].upper()} {suggestion['category'].upper()}: {suggestion['content']}")
+            self.track_suggestion(suggestion)
             return suggestion
-        else:
-            logger.info("🤔 AI ANALYSIS: No suggestion generated for this input")
-            logger.info("-" * 80)
         
         return None
     
@@ -294,14 +301,8 @@ Visit Type: {self.patient_context.get('visit_type', 'General')}
 Previous Conditions: {'; '.join([h['condition'] for h in self.patient_context.get('medical_history', [])[:3]])}
 """
         
-        # Check if we should provide suggestion
-        suggestion_trigger_keywords = [
-            'pain', 'hurt', 'symptom', 'feel', 'chest', 'head', 'dizzy', 'nausea',
-            'fever', 'cough', 'breath', 'medication', 'treatment', 'diagnosis'
-        ]
-        
-        if not any(keyword in current_text.lower() for keyword in suggestion_trigger_keywords):
-            return None
+        # AI processes everything - no keyword filtering
+        # Ambient listening means always analyzing
         
         # TODO: RAG Integration Point - Replace this prompt with RAG-enhanced context
         # Future: Add medical knowledge base, clinical guidelines, drug interactions, etc.
@@ -323,9 +324,9 @@ Provide a brief suggestion for the practitioner if relevant. Focus on:
 - Treatment considerations based on patient history
 
 Keep under 80 words. Only suggest if valuable. 
-Respond with JSON: {{"content": "suggestion", "priority": "low|medium|high", "category": "diagnosis|treatment|questions|alert"}}
+Respond with JSON: {{"content": "suggestion", "priority": "low|medium|high", "category": "diagnosis|treatment|questions|alert", "confidence": 0.0-1.0}}
 
-If no suggestion needed, respond: {{"content": null}}
+If no suggestion needed, respond: {{"content": null, "confidence": 0.0}}
 """
         
         try:
@@ -354,8 +355,130 @@ If no suggestion needed, respond: {{"content": null}}
             return suggestion_json
             
         except Exception as e:
-            logger.error(f"AI suggestion error: {e}")
+            error_message = str(e)
+            logger.error(f"AI suggestion error: {error_message}")
+            
+            # Send user-friendly error to frontend
+            await self.send_error_to_frontend(error_message, "ai_processing_error")
             return None
+    
+    def should_surface_suggestion(self, suggestion: Dict) -> bool:
+        """Smart filtering - only surface valuable suggestions"""
+        
+        if not suggestion or not suggestion.get('content'):
+            return False
+        
+        # Check confidence threshold
+        confidence = suggestion.get('confidence', 0.0)
+        if confidence < self.min_confidence:
+            return False
+        
+        # Avoid spam - check recent suggestions
+        current_time = datetime.now()
+        recent_cutoff = current_time - timedelta(seconds=self.suggestion_cooldown)
+        
+        # Remove old suggestions from tracking
+        self.recent_suggestions = [
+            s for s in self.recent_suggestions 
+            if s['timestamp'] > recent_cutoff
+        ]
+        
+        # Check for duplicate content
+        suggestion_content = suggestion['content'].lower()
+        for recent in self.recent_suggestions:
+            if self.is_similar_suggestion(suggestion_content, recent['content'].lower()):
+                return False
+        
+        # Priority-based filtering
+        priority = suggestion.get('priority', 'low')
+        if priority == 'high':
+            return True  # Always surface high priority
+        elif priority == 'medium':
+            # Medium priority - only if not too many recent suggestions
+            return len(self.recent_suggestions) < 2
+        else:
+            # Low priority - only if no recent suggestions
+            return len(self.recent_suggestions) == 0
+    
+    def is_similar_suggestion(self, content1: str, content2: str) -> bool:
+        """Check if suggestions are too similar"""
+        # Simple similarity check - can be enhanced
+        words1 = set(content1.split())
+        words2 = set(content2.split())
+        
+        if not words1 or not words2:
+            return False
+        
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        similarity = len(intersection) / len(union)
+        return similarity > 0.6  # 60% similarity threshold
+    
+    def track_suggestion(self, suggestion: Dict):
+        """Track surfaced suggestions to avoid spam"""
+        self.recent_suggestions.append({
+            'content': suggestion['content'],
+            'timestamp': datetime.now(),
+            'priority': suggestion.get('priority', 'low')
+        })
+    
+    async def send_error_to_frontend(self, error_message: str, error_type: str = "general_error"):
+        """Send user-friendly error messages to the frontend"""
+        try:
+            # Create user-friendly error messages
+            user_message = self._get_user_friendly_error(error_message, error_type)
+            
+            error_data = {
+                "type": "agent_error",
+                "data": {
+                    "error_type": error_type,
+                    "user_message": user_message,
+                    "technical_details": error_message,
+                    "timestamp": datetime.now().isoformat(),
+                    "status": "error"
+                }
+            }
+            
+            if hasattr(self, 'room_context') and self.room_context:
+                error_payload = json.dumps(error_data).encode()
+                logger.info(f"📢 Sending error to frontend: {user_message}")
+                
+                await self.room_context.room.local_participant.publish_data(
+                    error_payload, reliable=True
+                )
+            else:
+                logger.warning(f"⚠️ Cannot send error to frontend - no room context available")
+                
+        except Exception as e:
+            logger.error(f"Failed to send error to frontend: {e}")
+    
+    def _get_user_friendly_error(self, error_message: str, error_type: str) -> str:
+        """Convert technical errors to user-friendly messages"""
+        error_lower = error_message.lower()
+        
+        if error_type == "transcription_error":
+            if "connection error" in error_lower:
+                return "Speech recognition is temporarily unavailable due to a connection issue. The AI agent will continue listening and retry automatically."
+            elif "timeout" in error_lower:
+                return "Speech recognition timed out. This may happen with longer pauses. The AI agent continues to listen."
+            elif "rate limit" in error_lower or "quota" in error_lower:
+                return "Speech recognition service is temporarily rate limited. Please wait a moment while it recovers."
+            elif "authentication" in error_lower or "api key" in error_lower:
+                return "Speech recognition service authentication failed. Please contact your administrator."
+            else:
+                return "Speech recognition encountered an issue but the AI agent continues listening."
+        
+        elif error_type == "ai_processing_error":
+            if "connection error" in error_lower:
+                return "AI analysis is temporarily unavailable due to a connection issue. Speech recognition continues normally."
+            elif "rate limit" in error_lower:
+                return "AI analysis service is temporarily rate limited. Speech recognition continues."
+            else:
+                return "AI analysis encountered an issue but speech recognition continues normally."
+        
+        else:
+            return "The AI healthcare agent encountered a temporary issue but continues operating."
 
 # Global agent instance
 whisper_agent = RealTimeWhisperAgent()
@@ -379,6 +502,9 @@ async def entrypoint(ctx: JobContext):
     
     logger.info(f"🏥 Starting Real-time Whisper Healthcare Agent")
     logger.info(f"🎤 Room: {ctx.room.name}")
+    
+    # Store room context for error handling
+    whisper_agent.room_context = ctx
     
     # Extract session and load patient context
     session_id = extract_session_id(ctx.room.name)
@@ -441,47 +567,74 @@ async def entrypoint(ctx: JobContext):
         async for frame in audio_stream:
             frame_count += 1
             try:
-                # Log every 50th frame to avoid spam
-                if frame_count % 50 == 1:
+                # Log every 500th frame to reduce spam
+                if frame_count % 500 == 1:
+                    # Handle AudioFrameEvent vs AudioFrame for logging
+                    if hasattr(frame, 'frame'):
+                        actual_frame = frame.frame
+                        frame_size = len(actual_frame.data) if hasattr(actual_frame, 'data') else 'Unknown'
+                        sample_rate = getattr(actual_frame, 'sample_rate', 'Unknown')
+                        channels = getattr(actual_frame, 'channels', 'Unknown')
+                    else:
+                        frame_size = len(frame.data) if hasattr(frame, 'data') else 'Unknown'
+                        sample_rate = getattr(frame, 'sample_rate', 'Unknown')
+                        channels = getattr(frame, 'channels', 'Unknown')
+                    
                     logger.info(f"🎤 AUDIO FRAME #{frame_count} from {participant.identity}")
-                    logger.info(f"   Frame size: {len(frame.data) if hasattr(frame, 'data') else 'Unknown'} bytes")
-                    logger.info(f"   Sample rate: {getattr(frame, 'sample_rate', 'Unknown')} Hz")
-                    logger.info(f"   Channels: {getattr(frame, 'channels', 'Unknown')}")
+                    logger.info(f"   Frame size: {frame_size} bytes")
+                    logger.info(f"   Sample rate: {sample_rate} Hz")
+                    logger.info(f"   Channels: {channels}")
                 
                 # Buffer audio for transcription and get potential suggestion
                 suggestion = await whisper_agent.buffer_audio(participant.identity, frame)
                 
-                # If we got a suggestion, broadcast it to the room
+                # Always send transcription data to frontend
+                transcription_data = {
+                    "type": "transcription",
+                    "data": {
+                        "participant_id": participant.identity,
+                        "speaker_type": "practitioner" if "dr" in participant.identity.lower() else "patient",
+                        "text": suggestion.get("triggered_by", "") if suggestion else "",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
+                
+                # Only send transcription if there's actual text
+                if transcription_data["data"]["text"].strip():
+                    transcription_payload = json.dumps(transcription_data).encode()
+                    logger.info(f"📤 Transcription payload length: {len(transcription_payload)}")
+                    
+                    if len(transcription_payload) > 0:
+                        await ctx.room.local_participant.publish_data(
+                            transcription_payload, reliable=True
+                        )
+                        logger.info(f"📤 Sent transcription to frontend")
+                    else:
+                        logger.warning(f"⚠️ Attempted to send empty transcription payload!")
+                        logger.warning(f"⚠️ transcription_data: {transcription_data}")
+                
+                # Send AI suggestion if available
                 if suggestion:
                     logger.info("🔔 AI SUGGESTION GENERATED - Broadcasting to frontend...")
                     
-                    # Send transcription data to frontend
-                    transcription_data = {
-                        "type": "transcription",
-                        "data": {
-                            "participant_id": participant.identity,
-                            "speaker_type": "practitioner" if "dr" in participant.identity.lower() else "patient",
-                            "text": suggestion.get("triggered_by", ""),
-                            "timestamp": suggestion.get("timestamp")
-                        }
-                    }
-                    
-                    # Send AI suggestion to frontend
                     suggestion_data = {
                         "type": "ai_suggestion", 
                         "data": suggestion
                     }
                     
-                    # Broadcast via data channel
-                    await ctx.room.local_participant.publish_data(
-                        json.dumps(transcription_data).encode(), reliable=True
-                    )
+                    # Broadcast suggestion via data channel
+                    suggestion_payload = json.dumps(suggestion_data).encode()
+                    logger.info(f"💡 Suggestion payload length: {len(suggestion_payload)}")
                     
-                    await ctx.room.local_participant.publish_data(
-                        json.dumps(suggestion_data).encode(), reliable=True
-                    )
+                    if len(suggestion_payload) > 0:
+                        await ctx.room.local_participant.publish_data(
+                            suggestion_payload, reliable=True
+                        )
+                    else:
+                        logger.warning(f"⚠️ Attempted to send empty suggestion payload!")
+                        logger.warning(f"⚠️ suggestion_data: {suggestion_data}")
                     
-                    logger.info(f"📡 Successfully broadcasted to {len(ctx.room.remote_participants)} participants")
+                    logger.info(f"📡 AI suggestion broadcasted to {len(ctx.room.remote_participants)} participants")
                 
             except Exception as e:
                 logger.error(f"❌ Audio processing error for {participant.identity}: {e}")
@@ -520,16 +673,42 @@ async def entrypoint(ctx: JobContext):
     async def send_status_updates():
         while True:
             try:
-                await ctx.room.local_participant.publish_data(
-                    json.dumps({
-                        "type": "agent_status",
-                        "status": "listening",
+                # Determine current status based on recent activity
+                current_status = "listening"
+                current_message = "AI agent is listening..."
+                
+                # Check if there have been recent errors (optional enhancement)
+                # For now, always show as listening during periodic updates
+                
+                status_message = {
+                    "type": "agent_status",
+                    "data": {
+                        "status": current_status,
+                        "message": current_message,
                         "timestamp": datetime.now().isoformat(),
-                        "transcription_count": len(whisper_agent.transcription_buffer)
-                    }).encode(),
-                    reliable=False
-                )
-                await asyncio.sleep(10)  # Status every 10 seconds
+                        "transcription_count": len(whisper_agent.transcription_buffer),
+                        "recent_suggestions": len(whisper_agent.recent_suggestions)
+                    }
+                }
+                
+                status_json = json.dumps(status_message)
+                status_payload = status_json.encode()
+                
+                # Debug the payload being sent
+                logger.info(f"📊 Sending status update: {status_json}")
+                logger.info(f"📊 Status payload length: {len(status_payload)}")
+                
+                # Only send if payload is not empty
+                if len(status_payload) > 0:
+                    await ctx.room.local_participant.publish_data(
+                        status_payload,
+                        reliable=True  # Make status updates reliable
+                    )
+                else:
+                    logger.warning(f"⚠️ Attempted to send empty status payload!")
+                    logger.warning(f"⚠️ Empty status_json: '{status_json}'")
+                    logger.warning(f"⚠️ Empty status_message: {status_message}")
+                await asyncio.sleep(15)  # Status every 15 seconds (less frequent)
             except Exception as e:
                 logger.error(f"Status update error: {e}")
                 break
