@@ -52,6 +52,7 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.patient import Patient
 from app.models.session import Session as SessionModel
+from simple_rag import simple_rag
 
 class RealTimeWhisperAgent:
     """Real-time Whisper agent for healthcare consultations"""
@@ -67,16 +68,24 @@ class RealTimeWhisperAgent:
         if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
             self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
             logger.info("OpenAI Whisper client ready for real-time transcription")
+            
+            # Log RAG status
+            rag_status = simple_rag.get_loading_status()
+            if rag_status == "vector_db_ready":
+                logger.info("✅ RAG system ready with MOH guidelines vector database")
+            else:
+                logger.info("⚡ RAG system ready with basic clinical guidelines (vector DB fallback)")
         
         # Audio settings for continuous processing
         self.sample_rate = 16000  # 16kHz for Whisper
         self.buffer_duration = 2.0  # Shorter buffer for responsiveness
         self.min_audio_length = 0.5  # Minimum for transcription
         
-        # Suggestion filtering for ambient listening
+        # Suggestion filtering for ambient listening - be less intrusive
         self.recent_suggestions = []
-        self.suggestion_cooldown = 10.0  # Don't spam suggestions
-        self.min_confidence = 0.8  # Only surface high-confidence suggestions
+        self.suggestion_cooldown = 30.0  # Longer cooldown - only suggest every 30 seconds max
+        self.min_confidence = 0.85  # Higher confidence threshold
+        self.min_words_for_suggestion = 10  # Need substantial conversation before suggesting
         
     async def load_patient_context(self, session_id: str) -> Dict:
         """Load patient context for AI suggestions"""
@@ -269,14 +278,22 @@ class RealTimeWhisperAgent:
         if len(self.transcription_buffer) > 10:
             self.transcription_buffer = self.transcription_buffer[-10:]
         
-        # AI is always analyzing - ambient processing
-        suggestion = await self.generate_ai_suggestion(text, speaker_type)
+        # Only analyze if we have enough conversation context
+        total_conversation_words = sum(len(entry['text'].split()) for entry in self.transcription_buffer)
         
-        # Filter suggestions - only surface valuable ones
-        if suggestion and self.should_surface_suggestion(suggestion):
-            logger.info(f"💡 {suggestion['priority'].upper()} {suggestion['category'].upper()}: {suggestion['content']}")
-            self.track_suggestion(suggestion)
-            return suggestion
+        if total_conversation_words >= self.min_words_for_suggestion:
+            # AI analysis - but still be selective
+            suggestion = await self.generate_ai_suggestion(text, speaker_type)
+            
+            # Filter suggestions - only surface truly valuable ones
+            if suggestion and self.should_surface_suggestion(suggestion):
+                logger.info(f"💡 SUGGESTED QUESTION [{suggestion['priority'].upper()}]: {suggestion['content']}")
+                logger.info(f"📊 Category: {suggestion['category'].upper()}, Confidence: {suggestion['confidence']:.2f}")
+                self.track_suggestion(suggestion)
+                return suggestion
+        else:
+            # Not enough conversation yet - stay quiet
+            logger.debug(f"🤫 Staying quiet - only {total_conversation_words} words so far (need {self.min_words_for_suggestion})")
         
         return None
     
@@ -301,13 +318,9 @@ Visit Type: {self.patient_context.get('visit_type', 'General')}
 Previous Conditions: {'; '.join([h['condition'] for h in self.patient_context.get('medical_history', [])[:3]])}
 """
         
-        # AI processes everything - no keyword filtering
-        # Ambient listening means always analyzing
-        
-        # TODO: RAG Integration Point - Replace this prompt with RAG-enhanced context
-        # Future: Add medical knowledge base, clinical guidelines, drug interactions, etc.
-        prompt = f"""
-You are an AI healthcare assistant providing real-time suggestions during a consultation.
+        # Build base prompt focused on direct questions
+        base_prompt = f"""
+You are an AI healthcare assistant providing direct questions for the practitioner to ask during consultation.
 
 PATIENT CONTEXT:
 {patient_info}
@@ -317,17 +330,27 @@ RECENT CONVERSATION:
 
 CURRENT: {speaker_type} just said: "{current_text}"
 
-Provide a brief suggestion for the practitioner if relevant. Focus on:
-- Diagnostic questions to ask
-- Symptoms to investigate further  
-- Red flags or urgent concerns
-- Treatment considerations based on patient history
+If relevant, provide a DIRECT QUESTION the doctor can ask the patient immediately. Format as a complete question ready to be spoken.
 
-Keep under 80 words. Only suggest if valuable. 
-Respond with JSON: {{"content": "suggestion", "priority": "low|medium|high", "category": "diagnosis|treatment|questions|alert", "confidence": 0.0-1.0}}
+Focus on:
+- Follow-up questions about symptoms mentioned
+- Clarification of patient statements  
+- Red flag screening questions
+- History-taking based on current symptoms
 
-If no suggestion needed, respond: {{"content": null, "confidence": 0.0}}
+IMPORTANT: 
+- Only suggest when truly needed (high confidence only)
+- Provide the exact question to ask, not advice about what to think about
+- Keep questions conversational and natural
+- Be selective - don't overwhelm the practitioner
+
+Respond with JSON: {{"content": "exact question to ask", "priority": "low|medium|high", "category": "clarification|symptoms|history|safety", "confidence": 0.0-1.0}}
+
+If no question needed, respond: {{"content": null, "confidence": 0.0}}
 """
+        
+        # Enhance prompt with RAG if available
+        prompt = await simple_rag.enhance_prompt(base_prompt, recent_conversation)
         
         try:
             response = self.openai_client.chat.completions.create(
@@ -389,16 +412,17 @@ If no suggestion needed, respond: {{"content": null, "confidence": 0.0}}
             if self.is_similar_suggestion(suggestion_content, recent['content'].lower()):
                 return False
         
-        # Priority-based filtering
+        # More conservative priority-based filtering
         priority = suggestion.get('priority', 'low')
         if priority == 'high':
-            return True  # Always surface high priority
+            # High priority - allow if not too many recent suggestions
+            return len(self.recent_suggestions) < 3
         elif priority == 'medium':
-            # Medium priority - only if not too many recent suggestions
-            return len(self.recent_suggestions) < 2
+            # Medium priority - only if very few recent suggestions
+            return len(self.recent_suggestions) < 1
         else:
-            # Low priority - only if no recent suggestions
-            return len(self.recent_suggestions) == 0
+            # Low priority - almost never surface to avoid noise
+            return len(self.recent_suggestions) == 0 and suggestion.get('confidence', 0) > 0.9
     
     def is_similar_suggestion(self, content1: str, content2: str) -> bool:
         """Check if suggestions are too similar"""
