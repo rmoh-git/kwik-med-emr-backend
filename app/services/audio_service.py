@@ -6,8 +6,9 @@ import aiofiles
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.recording import Recording, RecordingStatusEnum
+from app.models.recording import Recording, RecordingStatusEnum, LanguageEnum
 from app.schemas.recording import TranscriptSegment, SpeakerEnum
+import httpx
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -81,24 +82,177 @@ class AudioService:
         return str(file_path)
     
     async def transcribe_audio(self, recording: Recording, db: Session) -> Optional[str]:
-        """Transcribe audio file using AssemblyAI or OpenAI Whisper"""
-        logger.info(f"Starting transcription for {recording.file_path}")
-        logger.info(f"Using AssemblyAI: {self.use_assemblyai}")
+        """Transcribe audio file based on language selection"""
+        logger.info(f"Starting transcription for {recording.file_path}, language: {recording.language}")
         
-        if self.use_assemblyai and ASSEMBLYAI_AVAILABLE:
-            return await self._transcribe_with_assemblyai(recording, db)
+        # Route transcription based on language
+        if recording.language == LanguageEnum.KINYARWANDA:
+            logger.info("Using Kinyarwanda transcription service")
+            return await self._transcribe_kinyarwanda(recording, db)
+        
+        # For English, French, Swahili - use AssemblyAI with diarization
+        elif recording.language in [LanguageEnum.ENGLISH, LanguageEnum.FRENCH, LanguageEnum.SWAHILI]:
+            if self.use_assemblyai and ASSEMBLYAI_AVAILABLE:
+                logger.info(f"Using AssemblyAI for {recording.language.value}")
+                try:
+                    return await self._transcribe_with_assemblyai(recording, db)
+                except Exception as aai_error:
+                    logger.error(f"AssemblyAI failed: {aai_error}")
+                    # Fallback to OpenAI for non-Kinyarwanda languages
+                    if self.openai_client:
+                        logger.info("Falling back to OpenAI Whisper")
+                        return await self._transcribe_with_openai(recording, db)
+                    return None
+            elif self.openai_client:
+                logger.info(f"Using OpenAI Whisper for {recording.language.value}")
+                return await self._transcribe_with_openai(recording, db)
+            else:
+                logger.error("No transcription service available")
+                return None
         else:
-            return await self._transcribe_with_openai(recording, db)
+            logger.error(f"Unsupported language: {recording.language}")
+            return None
+    
+    async def _transcribe_kinyarwanda(self, recording: Recording, db: Session) -> Optional[str]:
+        """Transcribe Kinyarwanda audio using Pindo AI API (no diarization)"""
+        try:
+            logger.info("Starting Kinyarwanda transcription with Pindo AI...")
+            
+            # Read audio file
+            async with aiofiles.open(recording.file_path, 'rb') as audio_file:
+                file_content = await audio_file.read()
+            
+            # Prepare multipart form data for Pindo API
+            files = {
+                'audio': (os.path.basename(recording.file_path), file_content, 'audio/wav')
+            }
+            
+            headers = {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-US,en;q=0.9'
+            }
+            
+            # Make request to Pindo API
+            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout
+                logger.info("Sending file to Pindo Kinyarwanda transcription API...")
+                response = await client.post(
+                    settings.PINDO_API_URL,
+                    files=files,
+                    headers=headers
+                )
+                
+                logger.info(f"Pindo API response status: {response.status_code}")
+                logger.info(f"Pindo API response headers: {dict(response.headers)}")
+                
+                if response.status_code != 200:
+                    error_text = response.text
+                    logger.error(f"Pindo API error: {response.status_code} - {error_text}")
+                    recording.status = RecordingStatusEnum.FAILED
+                    recording.processing_error = f"Pindo API error: {response.status_code} - {error_text[:200]}"
+                    db.commit()
+                    return None
+                
+                # Parse response - Pindo may return different format
+                response_text = response.text.strip()
+                logger.info(f"Pindo raw response: {response_text[:200]}...")
+                
+                # Try to parse as JSON first
+                try:
+                    result = response.json()
+                    # Extract text from Pindo's nested response format: {"code":200,"data":{"text":"..."},"error":null}
+                    transcript_text = None
+                    if 'data' in result and isinstance(result['data'], dict):
+                        transcript_text = result['data'].get('text')
+                    
+                    # Fallback to other possible formats
+                    if not transcript_text:
+                        transcript_text = (
+                            result.get('transcription') or 
+                            result.get('text') or 
+                            result.get('transcript') or
+                            result.get('result') or
+                            str(result) if isinstance(result, str) else None
+                        )
+                except Exception:
+                    # If not JSON, treat the response as plain text
+                    transcript_text = response_text
+                
+                if not transcript_text or transcript_text.strip() == "":
+                    logger.error("Empty transcription returned from Pindo API")
+                    recording.status = RecordingStatusEnum.FAILED
+                    recording.processing_error = "Empty transcription from Pindo API"
+                    db.commit()
+                    return None
+                
+                # Clean transcript text
+                transcript_text = str(transcript_text).strip()
+                logger.info(f"Kinyarwanda transcription completed, length: {len(transcript_text)} characters")
+                logger.info(f"Transcript preview: {transcript_text[:100]}...")
+                
+                # Translate Kinyarwanda to English
+                english_translation = await self._translate_to_english(transcript_text)
+                logger.info(f"Translation completed: {english_translation[:100]}...")
+                
+                # For Kinyarwanda, create dual-language segments without speaker diarization
+                segments = [TranscriptSegment(
+                    text=transcript_text,
+                    speaker=SpeakerEnum.UNKNOWN,  # No diarization for Kinyarwanda
+                    start_time=0.0,
+                    end_time=float(recording.duration_seconds) if recording.duration_seconds else 0.0,
+                    confidence=0.85  # Default confidence for Pindo
+                )]
+                
+                # Store both languages - English as primary transcript, Kinyarwanda preserved
+                combined_transcript = f"English: {english_translation}\n\nKinyarwanda: {transcript_text}"
+                
+                # Update recording with dual-language results
+                recording.transcript = combined_transcript
+                recording.transcript_segments = [seg.dict() for seg in segments]
+                recording.status = RecordingStatusEnum.COMPLETED
+                recording.processing_error = None
+                
+                # Store additional data for dual language support
+                recording.additional_data = {
+                    "original_language": "KINYARWANDA",
+                    "translated_language": "ENGLISH", 
+                    "original_text": transcript_text,
+                    "translated_text": english_translation
+                }
+                
+                # Mark JSON fields as modified for SQLAlchemy
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(recording, "transcript_segments")
+                flag_modified(recording, "additional_data")
+                
+                db.commit()
+                logger.info("Pindo Kinyarwanda transcription completed successfully")
+                
+                return transcript_text
+                
+        except Exception as e:
+            logger.error(f"Pindo Kinyarwanda transcription failed: {str(e)}", exc_info=True)
+            recording.status = RecordingStatusEnum.FAILED
+            recording.processing_error = f"Pindo API error: {str(e)}"
+            db.commit()
+            return None
     
     async def _transcribe_with_assemblyai(self, recording: Recording, db: Session) -> Optional[str]:
         """Transcribe using AssemblyAI with built-in speaker diarization"""
         try:
             logger.info("Starting AssemblyAI transcription...")
             
-            # Configure transcription settings
+            # Map language enum to AssemblyAI language codes
+            language_map = {
+                LanguageEnum.ENGLISH: "en",
+                LanguageEnum.FRENCH: "fr", 
+                LanguageEnum.SWAHILI: "sw"
+            }
+            
+            # Configure transcription settings with language
             config = aai.TranscriptionConfig(
                 speaker_labels=settings.ENABLE_SPEAKER_DIARIZATION,
-                speakers_expected=settings.ASSEMBLYAI_SPEAKERS_EXPECTED if settings.ENABLE_SPEAKER_DIARIZATION else None
+                speakers_expected=settings.ASSEMBLYAI_SPEAKERS_EXPECTED if settings.ENABLE_SPEAKER_DIARIZATION else None,
+                language_code=language_map.get(recording.language, "en")  # Default to English
             )
             
             # Create transcriber
@@ -206,15 +360,16 @@ class AudioService:
             return None
         
         try:
-            logger.info("Starting OpenAI Whisper transcription (fallback)...")
+            logger.info("Starting OpenAI Whisper transcription for ambient listening...")
             
-            # Transcribe audio
+            # Transcribe audio with enhanced settings for healthcare consultation
             with open(recording.file_path, 'rb') as audio_file:
                 transcript = self.openai_client.audio.transcriptions.create(
                     model=settings.WHISPER_MODEL,
                     file=audio_file,
                     response_format="verbose_json",
-                    timestamp_granularities=["segment"]
+                    timestamp_granularities=["segment"],
+                    prompt="This is a healthcare consultation between a doctor and patient. Please provide accurate transcription of medical terminology."
                 )
             
             # Extract transcript text
@@ -249,6 +404,39 @@ class AudioService:
             recording.processing_error = str(e)
             db.commit()
             return None
+    
+    async def _translate_to_english(self, kinyarwanda_text: str) -> str:
+        """Translate Kinyarwanda text to English using OpenAI"""
+        try:
+            if not self.openai_client:
+                logger.warning("OpenAI client not available for translation, returning original text")
+                return f"[Translation unavailable] {kinyarwanda_text}"
+            
+            logger.info("Starting Kinyarwanda to English translation...")
+            
+            translation_prompt = f"""Translate the following Kinyarwanda text to English. This is from a healthcare consultation, so maintain medical accuracy and context.
+
+Kinyarwanda text: {kinyarwanda_text}
+
+Provide only the English translation, no explanations or additional text."""
+
+            response = self.openai_client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a professional medical translator specializing in Kinyarwanda to English translation for healthcare consultations. Maintain medical accuracy and context."},
+                    {"role": "user", "content": translation_prompt}
+                ],
+                max_tokens=1000,
+                temperature=0.3  # Low temperature for consistent translation
+            )
+            
+            translation = response.choices[0].message.content.strip()
+            logger.info(f"Translation completed successfully: {len(translation)} characters")
+            return translation
+            
+        except Exception as e:
+            logger.error(f"Translation failed: {str(e)}")
+            return f"[Translation failed] {kinyarwanda_text}"
     
     async def perform_speaker_diarization(self, recording: Recording, db: Session) -> bool:
         """Legacy method - diarization now handled by AssemblyAI"""

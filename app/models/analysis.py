@@ -26,7 +26,7 @@ class Analysis(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=False, index=True)
-    analysis_type = Column(Enum(AnalysisTypeEnum), nullable=False)
+    analysis_type = Column(Enum(AnalysisTypeEnum), default=AnalysisTypeEnum.GENERAL_ANALYSIS, nullable=True)  # Made nullable with default
     prompt_context = Column(Text, nullable=True)
     status = Column(Enum(AnalysisStatusEnum), default=AnalysisStatusEnum.PENDING, nullable=False)
     result = Column(JSON, nullable=True)  # Store analysis result as JSON

@@ -36,7 +36,6 @@ class AnalysisCrudService:
         # Create analysis record
         analysis_data = AnalysisCreate(
             session_id=request.session_id,
-            analysis_type=request.analysis_type,
             prompt_context=request.custom_prompt
         )
         
