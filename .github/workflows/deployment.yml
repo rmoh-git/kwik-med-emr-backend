@@ -1,0 +1,81 @@
+# .github/workflows/deploy-kwik-med-emr.yml
+name: Deploy Kwik Med EMR
+
+on:
+  push:
+    branches: [ main ]
+#  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: kwik-med-self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          echo "Creating .env file..."
+          echo "${{ secrets.KWIK_MED_EMR_ENV }}" > .env
+
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build -t kwik-med-emr .
+
+      - name: Stop existing container
+        run: |
+          if [ "$(docker ps -q -f name=kwik-med-emr)" ]; then
+            echo "Stopping existing container..."
+            docker stop kwik-med-emr || true
+            docker rm kwik-med-emr || true
+          fi
+
+      - name: Start new container
+        run: |
+          echo "Starting container..."
+          docker run -d \
+            --restart unless-stopped \
+            --name kwik-med-emr \
+            -p 3034:3000 \
+            kwik-med-emr
+
+      - name: Send Slack notification on success
+        if: success()
+        run: |
+          echo "Sending Slack notification..."
+          curl -X POST -H 'Content-type: application/json' --data "{
+            \"text\": \"✅ Deployment successful for kwik-med-emr on $(hostname) at $(date)\",
+            \"blocks\": [
+              {
+                \"type\": \"section\",
+                \"text\": {
+                  \"type\": \"mrkdwn\",
+                  \"text\": \"*Deployment Status: SUCCESS* ✅\\n*Service:* kwik-med-emr\\n*Host:* $(hostname)\\n*Time:* $(date)\\n*Commit:* ${{ github.sha }}\\n*Branch:* ${{ github.ref_name }}\"
+                }
+              }
+            ]
+          }" ${{ secrets.KWIK_MED_EMR_SLACK_WEBHOOK_URL }}
+
+      - name: Send Slack notification on failure
+        if: failure()
+        run: |
+          echo "Sending failure notification..."
+          curl -X POST -H 'Content-type: application/json' --data "{
+            \"text\": \"❌ Deployment failed for kwik-med-emr on $(hostname) at $(date)\",
+            \"blocks\": [
+              {
+                \"type\": \"section\",
+                \"text\": {
+                  \"type\": \"mrkdwn\",
+                  \"text\": \"*Deployment Status: FAILED* ❌\\n*Service:* kwik-med-emr\\n*Host:* $(hostname)\\n*Time:* $(date)\\n*Commit:* ${{ github.sha }}\\n*Branch:* ${{ github.ref_name }}\\n*Workflow:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                }
+              }
+            ]
+            }" ${{ secrets.KWIK_MED_EMR_SLACK_WEBHOOK_URL }}
+
+      - name: Clean up old Docker images
+        run: |
+          echo "Cleaning up old Docker images..."
+          docker image prune -f --filter "dangling=true"
