@@ -117,15 +117,9 @@ class HealthcareRAGService:
                 embedder=embedder
             )
             
-            # URLs of healthcare guidelines (using example URLs - in production, use actual guideline documents)
-            guideline_urls = [
-                "https://apps.who.int/iris/bitstream/handle/10665/44102/9789241548434_eng.pdf",  # WHO Guidelines
-                "https://www.cdc.gov/infectioncontrol/pdf/guidelines/isolation-guidelines-H.pdf",  # CDC Guidelines
-            ]
             
             # Create knowledge base with source attribution
             knowledge_base = PDFUrlKnowledgeBase(
-                urls=guideline_urls,
                 vector_db=vector_db
             )
             
@@ -143,7 +137,6 @@ class HealthcareRAGService:
             name="Healthcare Diagnosis Agent",
             model=OpenAIChat(id="gpt-4o", api_key=settings.OPENAI_API_KEY),
             knowledge=self.knowledge_base,
-            tools=[DuckDuckGoTools()],
             description="Expert healthcare diagnosis assistant with mandatory source attribution",
             instructions=[
                 "CRITICAL: Every medical recommendation MUST include source citations",
@@ -165,7 +158,6 @@ class HealthcareRAGService:
             name="Healthcare Treatment Agent", 
             model=OpenAIChat(id="gpt-4o", api_key=settings.OPENAI_API_KEY),
             knowledge=self.knowledge_base,
-            tools=[DuckDuckGoTools()],
             description="Evidence-based treatment recommendation agent",
             instructions=[
                 "MANDATORY: All treatment recommendations must cite medical sources",
@@ -187,7 +179,6 @@ class HealthcareRAGService:
             name="Healthcare Analysis Agent",
             model=OpenAIChat(id="gpt-4o", api_key=settings.OPENAI_API_KEY), 
             knowledge=self.knowledge_base,
-            tools=[DuckDuckGoTools()],
             description="Comprehensive medical analysis with source verification",
             instructions=[
                 "ESSENTIAL: Every clinical insight requires source attribution", 

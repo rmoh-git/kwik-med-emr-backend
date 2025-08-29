@@ -17,8 +17,18 @@ class BaseRepository(Generic[ModelType]):
         return self.db.query(self.model).filter(self.model.id == id).first()
     
     def get_all(self, skip: int = 0, limit: int = 100) -> List[ModelType]:
-        """Get all records with pagination"""
-        return self.db.query(self.model).offset(skip).limit(limit).all()
+        """Get all records with pagination, ordered from most recent to oldest"""
+        query = self.db.query(self.model)
+        
+        # Order by created_at if available, otherwise by updated_at, otherwise by id
+        if hasattr(self.model, 'created_at'):
+            query = query.order_by(self.model.created_at.desc())
+        elif hasattr(self.model, 'updated_at'):
+            query = query.order_by(self.model.updated_at.desc())
+        elif hasattr(self.model, 'id'):
+            query = query.order_by(self.model.id.desc())
+        
+        return query.offset(skip).limit(limit).all()
     
     def create(self, obj_data: Dict[str, Any]) -> ModelType:
         """Create a new record"""

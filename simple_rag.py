@@ -285,14 +285,23 @@ class SimpleRAG:
             # Extract and format results with detailed logging
             guidance_parts = []
             for i, result in enumerate(results):
-                if hasattr(result, 'text') and result.text:
+                # Try different content attributes (agno uses 'content' not 'text')
+                content_text = None
+                if hasattr(result, 'content') and result.content:
+                    content_text = result.content
+                elif hasattr(result, 'text') and result.text:
+                    content_text = result.text
+                
+                if content_text:
                     # Limit chunk size for real-time use
-                    chunk_text = result.text[:400] + "..." if len(result.text) > 400 else result.text
+                    chunk_text = content_text[:400] + "..." if len(content_text) > 400 else content_text
                     guidance_parts.append(chunk_text)
                     
                     # Log each RAG chunk being used
                     logger.info(f"📖 RAG CHUNK {i+1}: {chunk_text[:100]}...")
-                    if hasattr(result, 'score'):
+                    if hasattr(result, 'reranking_score'):
+                        logger.info(f"   Relevance Score: {result.reranking_score:.3f}")
+                    elif hasattr(result, 'score'):
                         logger.info(f"   Relevance Score: {result.score:.3f}")
             
             if guidance_parts:

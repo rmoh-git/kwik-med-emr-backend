@@ -57,7 +57,8 @@ from simple_rag import simple_rag
 class RealTimeWhisperAgent:
     """Real-time Whisper agent for healthcare consultations"""
     
-    def __init__(self):
+    def __init__(self, mode: str = "live"):
+        self.mode = mode  # "live" for real-time AI suggestions, "record" for record-and-analyze
         self.openai_client = None
         self.audio_buffer = {}  # Per participant audio buffer
         self.transcription_buffer = []
@@ -81,11 +82,12 @@ class RealTimeWhisperAgent:
         self.buffer_duration = 2.0  # Shorter buffer for responsiveness
         self.min_audio_length = 0.5  # Minimum for transcription
         
-        # Suggestion filtering for ambient listening - be less intrusive
+        # Suggestion filtering for ambient listening - more tolerant thresholds for better suggestions
         self.recent_suggestions = []
-        self.suggestion_cooldown = 30.0  # Longer cooldown - only suggest every 30 seconds max
-        self.min_confidence = 0.85  # Higher confidence threshold
-        self.min_words_for_suggestion = 10  # Need substantial conversation before suggesting
+        self.suggestion_cooldown = 30.0  # More frequent suggestions - every 30 seconds max
+        self.min_confidence = 0.7  # Lower confidence threshold to allow more suggestions
+        self.min_words_for_suggestion = 15  # Less words needed (15+ words)
+        self.min_exchanges = 1  # Just need 1 exchange to start suggesting
         
     async def load_patient_context(self, session_id: str) -> Dict:
         """Load patient context for AI suggestions"""
@@ -258,9 +260,23 @@ class RealTimeWhisperAgent:
     async def process_transcription(self, participant_id: str, text: str):
         """Process transcription and generate AI suggestions"""
         
-        # Add to transcription buffer
+        # Add to transcription buffer with better speaker detection
         timestamp = datetime.now()
-        speaker_type = "practitioner" if "dr" in participant_id.lower() or "doctor" in participant_id.lower() else "patient"
+        
+        # Better speaker detection - check for practitioner indicators
+        practitioner_indicators = ["dr", "doctor", "physician", "practitioner", "clinician", "nurse", "provider"]
+        speaker_type = "practitioner" if any(indicator in participant_id.lower() for indicator in practitioner_indicators) else "patient"
+        
+        # If still unclear, use a simple alternating assumption for the first few exchanges
+        if len(self.transcription_buffer) == 0:
+            speaker_type = "practitioner"  # First speaker is usually practitioner
+        elif len(self.transcription_buffer) < 4:
+            # Alternate speakers for first few exchanges if identity is unclear
+            last_speaker = self.transcription_buffer[-1]['speaker_type']
+            if participant_id == self.transcription_buffer[-1]['participant_id']:
+                speaker_type = last_speaker  # Same participant
+            else:
+                speaker_type = "patient" if last_speaker == "practitioner" else "practitioner"
         
         transcription_entry = {
             "timestamp": timestamp.isoformat(),
@@ -273,29 +289,63 @@ class RealTimeWhisperAgent:
         
         # Enhanced logging for real-time monitoring
         logger.info(f"🎤 {speaker_type.upper()}: \"{text}\" [{timestamp.strftime('%H:%M:%S')}]")
+        logger.info(f"   👥 Participant: {participant_id} | Buffer size: {len(self.transcription_buffer)}")
         
         # Keep only last 10 entries
         if len(self.transcription_buffer) > 10:
             self.transcription_buffer = self.transcription_buffer[-10:]
         
-        # Only analyze if we have enough conversation context
-        total_conversation_words = sum(len(entry['text'].split()) for entry in self.transcription_buffer)
-        
-        if total_conversation_words >= self.min_words_for_suggestion:
-            # AI analysis - but still be selective
+        # Check if we have enough meaningful conversation before suggesting anything
+        if self.has_meaningful_conversation():
+            # AI analysis - but be extremely selective
             suggestion = await self.generate_ai_suggestion(text, speaker_type)
             
-            # Filter suggestions - only surface truly valuable ones
-            if suggestion and self.should_surface_suggestion(suggestion):
-                logger.info(f"💡 SUGGESTED QUESTION [{suggestion['priority'].upper()}]: {suggestion['content']}")
-                logger.info(f"📊 Category: {suggestion['category'].upper()}, Confidence: {suggestion['confidence']:.2f}")
-                self.track_suggestion(suggestion)
-                return suggestion
+            if suggestion:
+                logger.info(f"🤖 AI Generated suggestion: {suggestion}")
+                
+                # Filter suggestions - only surface truly valuable ones
+                if self.should_surface_suggestion(suggestion):
+                    logger.info(f"💡 SUGGESTED QUESTION [{suggestion['priority'].upper()}]: {suggestion['content']}")
+                    logger.info(f"📊 Category: {suggestion['category'].upper()}, Confidence: {suggestion['confidence']:.2f}")
+                    self.track_suggestion(suggestion)
+                    return suggestion
+                else:
+                    logger.info(f"🚫 Suggestion filtered out by should_surface_suggestion")
+            else:
+                logger.info(f"🤖 AI returned no suggestion")
         else:
-            # Not enough conversation yet - stay quiet
-            logger.debug(f"🤫 Staying quiet - only {total_conversation_words} words so far (need {self.min_words_for_suggestion})")
+            # Not enough meaningful conversation yet - stay quiet
+            logger.debug(f"🤫 Staying quiet - conversation not substantial enough yet")
         
         return None
+    
+    def has_meaningful_conversation(self) -> bool:
+        """Check if there's enough meaningful conversation to warrant a suggestion"""
+        # Check minimum exchanges
+        if len(self.transcription_buffer) < self.min_exchanges:
+            logger.debug(f"🤫 Not enough exchanges: {len(self.transcription_buffer)}/{self.min_exchanges}")
+            return False
+        
+        # Count total words
+        total_words = sum(len(entry['text'].split()) for entry in self.transcription_buffer)
+        if total_words < self.min_words_for_suggestion:
+            logger.debug(f"🤫 Not enough words: {total_words}/{self.min_words_for_suggestion}")
+            return False
+        
+        # Check for back-and-forth conversation (different speakers)
+        speakers = set(entry['speaker_type'] for entry in self.transcription_buffer)
+        if len(speakers) < 2:
+            logger.debug(f"🤫 Only one speaker type: {speakers}")
+            return False  # Need both practitioner and patient talking
+        
+        # Check for recent conversation flow (not just one person talking)
+        recent_speakers = [entry['speaker_type'] for entry in self.transcription_buffer[-4:]]
+        if len(set(recent_speakers)) < 2:
+            logger.debug(f"🤫 No recent back-and-forth: {recent_speakers}")
+            return False  # Need recent back-and-forth
+        
+        logger.info(f"✅ Meaningful conversation detected: {total_words} words, {len(speakers)} speakers")
+        return True
     
     async def generate_ai_suggestion(self, current_text: str, speaker_type: str) -> Optional[Dict]:
         """Generate contextual AI suggestion"""
@@ -318,39 +368,28 @@ Visit Type: {self.patient_context.get('visit_type', 'General')}
 Previous Conditions: {'; '.join([h['condition'] for h in self.patient_context.get('medical_history', [])[:3]])}
 """
         
-        # Build base prompt focused on direct questions
-        base_prompt = f"""
-You are an AI healthcare assistant providing direct questions for the practitioner to ask during consultation.
+        # Simple, focused prompt without RAG for real-time use
+        prompt = f"""
+You are an AI assistant helping a doctor during consultation. Provide ONLY direct questions the doctor can ask immediately.
 
-PATIENT CONTEXT:
-{patient_info}
+PATIENT: {self.patient_context.get('patient_name', 'Unknown')}, {self.patient_context.get('age', 'N/A')} years old
 
-RECENT CONVERSATION:
+CONVERSATION SO FAR:
 {recent_conversation}
 
 CURRENT: {speaker_type} just said: "{current_text}"
 
-If relevant, provide a DIRECT QUESTION the doctor can ask the patient immediately. Format as a complete question ready to be spoken.
+Only suggest a question if:
+1. The patient mentioned a symptom that needs clarification
+2. There's a clear follow-up question about something specific they said
+3. You notice a potential safety concern that needs immediate attention
 
-Focus on:
-- Follow-up questions about symptoms mentioned
-- Clarification of patient statements  
-- Red flag screening questions
-- History-taking based on current symptoms
+Provide ONLY the exact question to ask. Make it natural and conversational.
 
-IMPORTANT: 
-- Only suggest when truly needed (high confidence only)
-- Provide the exact question to ask, not advice about what to think about
-- Keep questions conversational and natural
-- Be selective - don't overwhelm the practitioner
+Respond with JSON: {{"content": "exact question", "priority": "medium|high", "category": "clarification|symptoms|safety", "confidence": 0.0-1.0}}
 
-Respond with JSON: {{"content": "exact question to ask", "priority": "low|medium|high", "category": "clarification|symptoms|history|safety", "confidence": 0.0-1.0}}
-
-If no question needed, respond: {{"content": null, "confidence": 0.0}}
+If no specific question needed, respond: {{"content": null, "confidence": 0.0}}
 """
-        
-        # Enhance prompt with RAG if available
-        prompt = await simple_rag.enhance_prompt(base_prompt, recent_conversation)
         
         try:
             response = self.openai_client.chat.completions.create(
@@ -389,11 +428,13 @@ If no question needed, respond: {{"content": null, "confidence": 0.0}}
         """Smart filtering - only surface valuable suggestions"""
         
         if not suggestion or not suggestion.get('content'):
+            logger.debug(f"🚫 Suggestion rejected: empty content")
             return False
         
         # Check confidence threshold
         confidence = suggestion.get('confidence', 0.0)
         if confidence < self.min_confidence:
+            logger.debug(f"🚫 Suggestion rejected: low confidence {confidence:.2f} < {self.min_confidence}")
             return False
         
         # Avoid spam - check recent suggestions
@@ -412,17 +453,28 @@ If no question needed, respond: {{"content": null, "confidence": 0.0}}
             if self.is_similar_suggestion(suggestion_content, recent['content'].lower()):
                 return False
         
-        # More conservative priority-based filtering
+        # More tolerant priority-based filtering to allow more suggestions
         priority = suggestion.get('priority', 'low')
+        confidence = suggestion.get('confidence', 0)
+        recent_count = len(self.recent_suggestions)
+        
+        logger.debug(f"🔍 Priority filtering: {priority} priority, {confidence:.2f} confidence, {recent_count} recent suggestions")
+        
         if priority == 'high':
-            # High priority - allow if not too many recent suggestions
-            return len(self.recent_suggestions) < 3
+            # High priority - allow even with recent suggestions (up to 3)
+            result = recent_count < 3
+            logger.debug(f"🔍 High priority: {result} (recent_count {recent_count} < 3)")
+            return result
         elif priority == 'medium':
-            # Medium priority - only if very few recent suggestions
-            return len(self.recent_suggestions) < 1
+            # Medium priority - more tolerant, allow with lower confidence and some recent suggestions
+            result = recent_count < 2 and confidence > 0.75
+            logger.debug(f"🔍 Medium priority: {result} (recent_count {recent_count} < 2 and confidence {confidence:.2f} > 0.75)")
+            return result
         else:
-            # Low priority - almost never surface to avoid noise
-            return len(self.recent_suggestions) == 0 and suggestion.get('confidence', 0) > 0.9
+            # Low priority - still restrictive but more achievable
+            result = recent_count < 1 and confidence > 0.85
+            logger.debug(f"🔍 Low priority: {result} (recent_count {recent_count} < 1 and confidence {confidence:.2f} > 0.85)")
+            return result
     
     def is_similar_suggestion(self, content1: str, content2: str) -> bool:
         """Check if suggestions are too similar"""
@@ -437,7 +489,7 @@ If no question needed, respond: {{"content": null, "confidence": 0.0}}
         union = words1.union(words2)
         
         similarity = len(intersection) / len(union)
-        return similarity > 0.6  # 60% similarity threshold
+        return similarity > 0.7  # 70% similarity threshold - allow more variation
     
     def track_suggestion(self, suggestion: Dict):
         """Track surfaced suggestions to avoid spam"""
@@ -540,13 +592,13 @@ async def entrypoint(ctx: JobContext):
     
     # Log room status
     logger.info("=" * 80)
-    logger.info(f"🏠 ROOM STATUS AFTER CONNECTION:")
+    logger.info(f"ROOM STATUS AFTER CONNECTION:")
     logger.info(f"   Room Name: {ctx.room.name}")
     logger.info(f"   Room SID: {ctx.room.sid}")
     logger.info(f"   Local Participant: {ctx.room.local_participant.identity}")
     logger.info(f"   Remote Participants: {len(ctx.room.remote_participants)}")
     for participant in ctx.room.remote_participants.values():
-        logger.info(f"      - {participant.identity} ({participant.sid})")
+        logger.info(f"- {participant.identity} ({participant.sid})")
     logger.info("=" * 80)
     
     # Track audio subscriptions

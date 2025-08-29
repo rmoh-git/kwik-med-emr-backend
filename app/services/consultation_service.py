@@ -293,7 +293,7 @@ class HealthcareConsultationService:
     async def list_active_rooms(self) -> list:
         """List active consultation rooms"""
         
-        try:
+        try: 
             if not self.livekit_available or not self.lk_api:
                 logger.info("Mock mode: Returning empty room list")
                 return []  # Mock mode returns empty list

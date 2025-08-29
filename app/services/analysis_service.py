@@ -125,17 +125,8 @@ Previous Visit ({session.created_at.strftime('%Y-%m-%d')}):
             if HEALTHCARE_RAG_AVAILABLE:
                 logging.info(f"Using Healthcare RAG with source attribution for analysis type: {analysis.analysis_type}")
                 
-                # Route to appropriate RAG agent based on analysis type
-                if analysis.analysis_type == AnalysisTypeEnum.DIAGNOSIS_ASSISTANCE:
-                    session_transcript = self._get_session_transcript(session) or ""
-                    rag_result = await healthcare_rag_service.get_diagnosis_with_sources(context, session_transcript)
-                    
-                elif analysis.analysis_type == AnalysisTypeEnum.TREATMENT_RECOMMENDATION:
-                    rag_result = await healthcare_rag_service.get_treatment_recommendations_with_sources(context)
-                    
-                else:  # GENERAL_ANALYSIS or FOLLOW_UP_PLANNING
-                    full_context = f"{context}\n\nAdditional Context: {analysis.prompt_context or ''}"
-                    rag_result = await healthcare_rag_service.get_comprehensive_analysis_with_sources(full_context)
+                full_context = f"{context}\n\nAdditional Context: {analysis.prompt_context}"
+                rag_result = await healthcare_rag_service.get_comprehensive_analysis_with_sources(full_context)
                 
                 # Validate source attribution - CRITICAL REQUIREMENT
                 if not rag_result.get('attribution_verified', False):
@@ -151,12 +142,11 @@ Previous Visit ({session.created_at.strftime('%Y-%m-%d')}):
                 
                 # Create enhanced result with source attribution
                 analysis_result = {
-                    "summary": analysis_content[:500] + "..." if len(analysis_content) > 500 else analysis_content,
+                    "summary": analysis_content,
                     "full_analysis": analysis_content,
                     "sources": sources,
                     "source_count": len(sources),
                     "attribution_verified": True,
-                    "analysis_type": analysis.analysis_type.value,
                     "rag_powered": True,
                     "confidence_score": 0.9,  # High confidence due to source attribution
                     "key_findings": self._extract_key_findings_from_rag_response(analysis_content)
@@ -199,7 +189,7 @@ Previous Visit ({session.created_at.strftime('%Y-%m-%d')}):
                 tokens_used = response.usage.total_tokens
                 
                 analysis_result = {
-                    "summary": ai_response[:500] + "..." if len(ai_response) > 500 else ai_response,
+                    "summary": ai_response,
                     "full_analysis": ai_response,
                     "sources": [],
                     "source_count": 0,

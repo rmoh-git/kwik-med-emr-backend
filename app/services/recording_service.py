@@ -42,7 +42,8 @@ class RecordingService:
         recording_data = RecordingCreate(
             session_id=request.session_id,
             file_name=f"recording_{session.id}_{session.created_at.strftime('%Y%m%d_%H%M%S')}.wav",
-            file_path=""  # Will be set when file is uploaded
+            file_path="",  # Will be set when file is uploaded
+            language=request.language
         )
         
         recording_dict = recording_data.model_dump()

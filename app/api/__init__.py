@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import patients, practitioners, sessions, recordings, analysis, patient_timeline, consultations
+from app.api.endpoints import patients, practitioners, sessions, recordings, analysis, patient_timeline, consultations, eligibility
 
 api_router = APIRouter()
 
@@ -10,3 +10,4 @@ api_router.include_router(recordings.router, prefix="/recordings", tags=["record
 api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 api_router.include_router(patient_timeline.router, prefix="/patients", tags=["patient-timeline"])
 api_router.include_router(consultations.router, prefix="/consultations", tags=["consultations"])
+api_router.include_router(eligibility.router, prefix="/eligibility", tags=["eligibility"])

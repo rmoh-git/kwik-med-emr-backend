@@ -30,8 +30,7 @@ class Patient(Base):
     # Insurance and ID information
     national_id = Column(String(20), nullable=True, index=True)  # National ID/SSN
     insurance_provider = Column(String(100), nullable=True)
-    insurance_policy_number = Column(String(50), nullable=True)
-    insurance_group_number = Column(String(50), nullable=True)
+    insurance_coverage_percentage = Column(String(10), nullable=True)  # e.g., "80%", "100%"
     
     # MRN now uses patient UUID directly
     @property

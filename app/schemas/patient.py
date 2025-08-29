@@ -26,8 +26,7 @@ class PatientBase(BaseModel):
     # Insurance and ID information
     national_id: Optional[str] = Field(None, max_length=20, description="National ID or SSN")
     insurance_provider: Optional[str] = Field(None, max_length=100, description="Insurance company name")
-    insurance_policy_number: Optional[str] = Field(None, max_length=50, description="Insurance policy number")
-    insurance_group_number: Optional[str] = Field(None, max_length=50, description="Insurance group number")
+    insurance_coverage_percentage: Optional[str] = Field(None, max_length=10, description="Coverage percentage (e.g., 80%, 100%)")
 
 
 class PatientCreate(PatientBase):
@@ -49,8 +48,7 @@ class PatientUpdate(BaseModel):
     # Insurance and ID information  
     national_id: Optional[str] = Field(None, max_length=20)
     insurance_provider: Optional[str] = Field(None, max_length=100)
-    insurance_policy_number: Optional[str] = Field(None, max_length=50)
-    insurance_group_number: Optional[str] = Field(None, max_length=50)
+    insurance_coverage_percentage: Optional[str] = Field(None, max_length=10)
 
 
 class PatientResponse(PatientBase):

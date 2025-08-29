@@ -161,24 +161,25 @@ class PatientTimelineService:
         events = []
         
         for session in sessions:
-            # Add session event
+            # Add session event with clinical focus
+            duration = self._calculate_session_duration(session)
             session_event = {
                 "id": f"session_{session.id}",
                 "timestamp": session.created_at.isoformat(),
                 "event_type": TimelineEventType.SESSION.value,
-                "title": f"{session.visit_type} Session",
-                "description": f"Session with {session.practitioner_name}",
-                "severity": "medium",
-                "duration_minutes": self._calculate_session_duration(session),
-                "metadata": {
-                    "session_id": str(session.id),
-                    "practitioner": session.practitioner_name,
+                "title": f"{session.visit_type} - {session.practitioner_name}",
+                "description": self._extract_clinical_summary(session),
+                "severity": self._assess_session_priority(session),
+                "duration_minutes": duration,
+                "clinical_details": {
                     "visit_type": session.visit_type,
-                    "status": session.status.value,
-                    "notes": session.notes or ""
-                },
-                "recordings": len(session.recordings),
-                "analyses": len(session.analyses)
+                    "duration": f"{duration} minutes" if duration else "Not specified",
+                    "documented": "Yes" if session.recordings else "No",
+                    "follow_up_noted": "Yes" if (session.notes and 
+                        any(word in session.notes.lower() for word in ['follow-up', 'return', 'next visit'])) else "No",
+                    "practitioner": session.practitioner_name,
+                    "status": "Completed" if session.status == SessionStatusEnum.COMPLETED else session.status.value
+                }
             }
             events.append(session_event)
             
@@ -210,87 +211,89 @@ class PatientTimelineService:
         return events
     
     def _generate_health_metrics(self, sessions: List[SessionModel], db: Session) -> List[Dict[str, Any]]:
-        """Generate health metrics from patient sessions and analyses"""
+        """Generate clinically meaningful health metrics for healthcare practitioners"""
         metrics = []
         
         if not sessions:
             return metrics
         
-        # Session frequency metric
-        session_count = len([s for s in sessions if s.status == SessionStatusEnum.COMPLETED])
-        days_span = (sessions[0].created_at - sessions[-1].created_at).days or 1
-        session_frequency = session_count / (days_span / 7)  # sessions per week
-        
+        # Total consultations completed
+        completed_sessions = [s for s in sessions if s.status == SessionStatusEnum.COMPLETED]
         metrics.append({
-            "name": "Session Frequency",
-            "value": round(session_frequency, 2),
-            "unit": "sessions/week",
-            "trend": self._determine_trend(session_frequency, 1.0, 2.0),  # 1-2 sessions/week is good
-            "category": "engagement",
-            "description": "Frequency of healthcare visits"
+            "name": "Total Consultations",
+            "value": len(completed_sessions),
+            "unit": "visits",
+            "trend": HealthTrend.STABLE.value,
+            "category": "care_access",
+            "description": "Number of completed medical consultations"
         })
         
-        # Analysis completion rate
-        total_analyses = sum(len(s.analyses) for s in sessions)
-        completed_analyses = sum(len([a for a in s.analyses if a.status == AnalysisStatusEnum.COMPLETED]) for s in sessions)
-        completion_rate = (completed_analyses / total_analyses * 100) if total_analyses > 0 else 0
+        # Average consultation duration
+        session_durations = [self._calculate_session_duration(s) for s in completed_sessions 
+                           if self._calculate_session_duration(s) is not None]
+        avg_duration = sum(session_durations) / len(session_durations) if session_durations else 30
         
         metrics.append({
-            "name": "Analysis Completion Rate",
-            "value": round(completion_rate, 1),
+            "name": "Average Consultation Duration",
+            "value": round(avg_duration),
+            "unit": "minutes",
+            "trend": self._determine_trend(avg_duration, 20, 45),  # 20-45 minutes is typical
+            "category": "care_quality",
+            "description": "Average length of medical consultations"
+        })
+        
+        # Days since last visit
+        if completed_sessions:
+            days_since_last = (datetime.now() - completed_sessions[0].created_at).days
+            metrics.append({
+                "name": "Days Since Last Visit",
+                "value": days_since_last,
+                "unit": "days",
+                "trend": self._determine_trend(days_since_last, 30, 90, reverse=True),  # Less days is better
+                "category": "follow_up",
+                "description": "Time elapsed since most recent consultation"
+            })
+        
+        # Visit frequency (visits per month)
+        if len(completed_sessions) > 1:
+            total_days = (completed_sessions[0].created_at - completed_sessions[-1].created_at).days
+            if total_days > 0:
+                visits_per_month = (len(completed_sessions) * 30) / total_days
+                metrics.append({
+                    "name": "Visit Frequency",
+                    "value": round(visits_per_month, 1),
+                    "unit": "visits/month",
+                    "trend": self._determine_trend(visits_per_month, 1.0, 3.0),  # 1-3 visits per month
+                    "category": "engagement",
+                    "description": "Frequency of healthcare consultations"
+                })
+        
+        # Follow-up compliance (based on session notes mentioning follow-up)
+        sessions_with_followup = len([s for s in completed_sessions 
+                                    if s.notes and any(keyword in s.notes.lower() 
+                                    for keyword in ['follow-up', 'follow up', 'return', 'next visit'])])
+        followup_rate = (sessions_with_followup / len(completed_sessions) * 100) if completed_sessions else 0
+        
+        metrics.append({
+            "name": "Follow-up Rate",
+            "value": round(followup_rate, 1),
             "unit": "percentage",
-            "trend": self._determine_trend(completion_rate, 80.0, 95.0),
-            "category": "quality",
-            "description": "Percentage of successful medical analyses"
+            "trend": self._determine_trend(followup_rate, 70, 90),  # 70-90% follow-up rate is good
+            "category": "care_continuity",
+            "description": "Percentage of consultations with follow-up plans"
         })
         
-        # Source attribution rate (healthcare compliance metric)
-        attributed_analyses = sum(
-            len([a for a in s.analyses 
-                if a.status == AnalysisStatusEnum.COMPLETED and 
-                   a.result and a.result.get("attribution_verified", False)])
-            for s in sessions
-        )
-        attribution_rate = (attributed_analyses / completed_analyses * 100) if completed_analyses > 0 else 0
+        # Recording completion rate (clinical documentation)
+        sessions_with_recordings = len([s for s in completed_sessions if s.recordings])
+        recording_rate = (sessions_with_recordings / len(completed_sessions) * 100) if completed_sessions else 0
         
         metrics.append({
-            "name": "Medical Source Attribution Rate",
-            "value": round(attribution_rate, 1),
+            "name": "Documentation Rate",
+            "value": round(recording_rate, 1),
             "unit": "percentage",
-            "trend": HealthTrend.IMPROVING if attribution_rate > 90 else HealthTrend.STABLE,
-            "category": "compliance",
-            "description": "Percentage of analyses with proper medical source citations",
-            "compliance_critical": True
-        })
-        
-        # Average processing time
-        processing_times = [a.processing_time_seconds for s in sessions for a in s.analyses 
-                          if a.processing_time_seconds is not None]
-        avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0
-        
-        metrics.append({
-            "name": "Average Analysis Processing Time",
-            "value": round(avg_processing_time, 2),
-            "unit": "seconds",
-            "trend": self._determine_trend(avg_processing_time, 10.0, 30.0, reverse=True),  # Lower is better
-            "category": "performance",
-            "description": "Average time to complete medical analysis"
-        })
-        
-        # Diagnosis confidence score
-        confidence_scores = [
-            a.result.get("confidence_score", 0.0) for s in sessions for a in s.analyses
-            if a.status == AnalysisStatusEnum.COMPLETED and a.result and "confidence_score" in a.result
-        ]
-        avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-        
-        metrics.append({
-            "name": "Average Diagnosis Confidence",
-            "value": round(avg_confidence, 3),
-            "unit": "score",
-            "trend": self._determine_trend(avg_confidence, 0.7, 0.9),
-            "category": "accuracy",
-            "description": "Average confidence level in medical diagnoses"
+            "trend": self._determine_trend(recording_rate, 80, 95),
+            "category": "documentation",
+            "description": "Percentage of consultations with audio documentation"
         })
         
         return metrics
@@ -549,9 +552,69 @@ class PatientTimelineService:
         return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     
     def _calculate_session_duration(self, session: SessionModel) -> Optional[int]:
+        """Calculate realistic session duration with constraints"""
         if session.ended_at and session.created_at:
-            return int((session.ended_at - session.created_at).total_seconds() / 60)
-        return None
+            duration_minutes = int((session.ended_at - session.created_at).total_seconds() / 60)
+            
+            # Apply realistic constraints for healthcare sessions (5-120 minutes)
+            if duration_minutes < 5:
+                return 5  # Minimum session duration
+            elif duration_minutes > 120:
+                return 60  # Cap unrealistic durations at 60 minutes (typical consultation)
+            else:
+                return duration_minutes
+        
+        # If no end time, estimate from recordings or default to typical consultation
+        if session.recordings:
+            total_recording_duration = sum(
+                r.duration_seconds or 0 for r in session.recordings 
+                if r.duration_seconds and r.duration_seconds > 0
+            ) / 60  # Convert to minutes
+            
+            if total_recording_duration > 0:
+                # Session is usually 10-20% longer than recording due to setup/discussion
+                estimated_duration = int(total_recording_duration * 1.15)
+                return min(max(estimated_duration, 10), 90)  # Between 10-90 minutes
+        
+        return 30  # Default to 30 minutes for typical consultation
+    
+    def _extract_clinical_summary(self, session: SessionModel) -> str:
+        """Extract clinically relevant summary from session"""
+        if session.notes:
+            # Extract first meaningful sentence from notes
+            notes = session.notes.strip()
+            if notes:
+                first_sentence = notes.split('.')[0][:150]
+                return first_sentence + "..." if len(notes) > 150 else first_sentence
+        
+        # Default descriptions based on visit type
+        visit_descriptions = {
+            "consultation": "Initial consultation and examination",
+            "follow_up": "Follow-up visit to assess progress",
+            "emergency": "Emergency consultation",
+            "routine": "Routine check-up and assessment",
+            "specialist": "Specialist consultation"
+        }
+        
+        return visit_descriptions.get(session.visit_type, "Medical consultation")
+    
+    def _assess_session_priority(self, session: SessionModel) -> str:
+        """Assess clinical priority/severity of session"""
+        # Check for emergency indicators
+        if session.visit_type == "emergency":
+            return "high"
+        
+        # Check notes for urgent keywords
+        if session.notes:
+            urgent_keywords = ['urgent', 'severe', 'critical', 'emergency', 'acute', 'pain']
+            if any(keyword in session.notes.lower() for keyword in urgent_keywords):
+                return "high"
+        
+        # Follow-up visits are typically medium priority
+        if session.visit_type == "follow_up":
+            return "medium"
+        
+        return "low"  # Default for routine visits
     
     def _extract_analysis_summary(self, result: Dict) -> str:
         if "summary" in result:
