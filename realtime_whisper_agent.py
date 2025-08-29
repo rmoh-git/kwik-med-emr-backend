@@ -35,6 +35,11 @@ try:
 except ImportError as e:
     LIVEKIT_AVAILABLE = False
     logger.error(f"LiveKit not available: {e}")
+    # Define placeholder types when LiveKit is not available
+    class JobProcess:
+        pass
+    class JobContext:
+        pass
 
 try:
     import openai
@@ -374,7 +379,7 @@ You are an AI assistant helping a doctor during consultation. Provide ONLY direc
 
 PATIENT: {self.patient_context.get('patient_name', 'Unknown')}, {self.patient_context.get('age', 'N/A')} years old
 
-TRY AND BE TALKATIVE
+TRY AND BE TALKATIVE AND FOLLOW THE INSTRUCTIONS
 
 CONVERSATION SO FAR:
 {recent_conversation}

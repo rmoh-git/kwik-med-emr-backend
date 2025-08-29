@@ -2,7 +2,7 @@
 name = "horizon-100"
 version = "0.1.0"
 description = "AI-powered health provider application for Horizon 1000 initiative"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Hallcoder <hallcoder25@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
