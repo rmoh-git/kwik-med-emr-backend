@@ -374,6 +374,8 @@ You are an AI assistant helping a doctor during consultation. Provide ONLY direc
 
 PATIENT: {self.patient_context.get('patient_name', 'Unknown')}, {self.patient_context.get('age', 'N/A')} years old
 
+TRY AND BE TALKATIVE
+
 CONVERSATION SO FAR:
 {recent_conversation}
 
