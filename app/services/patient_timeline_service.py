@@ -244,7 +244,17 @@ class PatientTimelineService:
         
         # Days since last visit
         if completed_sessions:
-            days_since_last = (datetime.now() - completed_sessions[0].created_at).days
+            # Handle timezone-aware datetime comparison
+            now = datetime.now()
+            last_session_time = completed_sessions[0].created_at
+            
+            # Make both datetimes timezone-naive for comparison
+            if last_session_time.tzinfo is not None:
+                last_session_time = last_session_time.replace(tzinfo=None)
+            if now.tzinfo is not None:
+                now = now.replace(tzinfo=None)
+                
+            days_since_last = (now - last_session_time).days
             metrics.append({
                 "name": "Days Since Last Visit",
                 "value": days_since_last,
