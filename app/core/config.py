@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     # AssemblyAI Configuration
     ASSEMBLYAI_API_KEY: Optional[str] = Field(default=None, description="AssemblyAI API key for transcription and diarization")
     
+    # Kinyarwanda Transcription API (Pindo)
+    PINDO_API_URL: str = Field(default="https://api.pindo.io/ai/stt/rw/public", description="Pindo API URL for Kinyarwanda transcription")
+    
+    # LiveKit Configuration
+    LIVEKIT_API_KEY: Optional[str] = Field(default=None, description="LiveKit API key")
+    LIVEKIT_API_SECRET: Optional[str] = Field(default=None, description="LiveKit API secret")
+    LIVEKIT_URL: Optional[str] = Field(default="ws://localhost:7880", description="LiveKit server URL")
+    
     # File Storage
     UPLOAD_DIR: str = Field(default="uploads", description="Directory for file uploads")
     MAX_FILE_SIZE: int = Field(default=100 * 1024 * 1024, description="Maximum file size in bytes (100MB)")

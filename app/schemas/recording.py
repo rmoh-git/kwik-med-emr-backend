@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, Field
 from enum import Enum
@@ -22,6 +22,13 @@ class SpeakerEnum(str, Enum):
     UNKNOWN = "unknown"
 
 
+class LanguageEnum(str, Enum):
+    ENGLISH = "ENGLISH"
+    FRENCH = "FRENCH"
+    SWAHILI = "SWAHILI"
+    KINYARWANDA = "KINYARWANDA"
+
+
 class TranscriptSegment(BaseModel):
     text: str
     speaker: SpeakerEnum
@@ -34,6 +41,7 @@ class RecordingBase(BaseModel):
     session_id: UUID
     file_name: str = Field(..., max_length=255)
     file_path: str = Field(..., max_length=500)
+    language: Optional[LanguageEnum] = Field(default=LanguageEnum.ENGLISH, description="Language for transcription")
 
 
 class RecordingCreate(RecordingBase):
@@ -45,16 +53,19 @@ class RecordingUpdate(BaseModel):
     transcript: Optional[str] = None
     transcript_segments: Optional[List[TranscriptSegment]] = None
     processing_error: Optional[str] = None
+    additional_data: Optional[Dict[str, Any]] = None
 
 
 class RecordingResponse(RecordingBase):
     id: UUID
     status: RecordingStatusEnum
+    language: LanguageEnum
     duration_seconds: Optional[float] = None
     file_size_bytes: Optional[int] = None
     transcript: Optional[str] = None
     transcript_segments: Optional[List[TranscriptSegment]] = None
     processing_error: Optional[str] = None
+    additional_data: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +75,7 @@ class RecordingResponse(RecordingBase):
 
 class RecordingStartRequest(BaseModel):
     session_id: UUID
+    language: Optional[LanguageEnum] = Field(default=LanguageEnum.ENGLISH, description="Language for transcription")
 
 
 class RecordingStopRequest(BaseModel):

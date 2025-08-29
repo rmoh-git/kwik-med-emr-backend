@@ -1,0 +1,573 @@
+{
+  "patient_info": {
+    "id": "32a0982f-2ad1-432f-a3b8-412fa34ff05c",
+    "name": "Jane Smith",
+    "age": 45,
+    "gender": "female",
+    "medical_record_number": "TEST6dca19"
+  },
+  "timeline_period": {
+    "start_date": "2025-06-27T12:00:40.752131",
+    "end_date": "2025-08-26T12:00:40.752131",
+    "days_covered": 60
+  },
+  "timeline_events": [
+    {
+      "id": "analysis_84cd3b3b-cda3-4b27-a59f-1fb5467b3e41",
+      "timestamp": "2025-08-26T12:08:40.715731-07:00",
+      "event_type": "analysis",
+      "title": "Treatment Recommendation Analysis",
+      "description": "Analysis 2 for session 1: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "84cd3b3b-cda3-4b27-a59f-1fb5467b3e41",
+        "session_id": "f34b92c4-4a47-4745-b83f-aa763c136861",
+        "analysis_type": "treatment_recommendation",
+        "processing_time": 5.2,
+        "tokens_used": 150,
+        "confidence_score": 0.85,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "analysis_7406c53d-6dda-4972-a872-64bb7dd24251",
+      "timestamp": "2025-08-26T12:05:40.715731-07:00",
+      "event_type": "analysis",
+      "title": "Diagnosis Assistance Analysis",
+      "description": "Analysis 1 for session 1: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "7406c53d-6dda-4972-a872-64bb7dd24251",
+        "session_id": "f34b92c4-4a47-4745-b83f-aa763c136861",
+        "analysis_type": "diagnosis_assistance",
+        "processing_time": 5.2,
+        "tokens_used": 150,
+        "confidence_score": 0.85,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "session_f34b92c4-4a47-4745-b83f-aa763c136861",
+      "timestamp": "2025-08-26T12:00:40.715731-07:00",
+      "event_type": "session",
+      "title": "consultation Session",
+      "description": "Session with Dr. Test 1",
+      "severity": "medium",
+      "duration_minutes": 30,
+      "metadata": {
+        "session_id": "f34b92c4-4a47-4745-b83f-aa763c136861",
+        "practitioner": "Dr. Test 1",
+        "visit_type": "consultation",
+        "status": "completed",
+        "notes": "Session 1 - Patient progress evaluation"
+      },
+      "recordings": 1,
+      "analyses": 2
+    },
+    {
+      "id": "analysis_df8ac9f2-c3c5-4ff2-8684-a6dd7ea90392",
+      "timestamp": "2025-08-19T12:08:40.722745-07:00",
+      "event_type": "analysis",
+      "title": "Treatment Recommendation Analysis",
+      "description": "Analysis 2 for session 2: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "df8ac9f2-c3c5-4ff2-8684-a6dd7ea90392",
+        "session_id": "76f3a9b8-dbbf-4e47-a078-9ce3e716fefe",
+        "analysis_type": "treatment_recommendation",
+        "processing_time": 5.5,
+        "tokens_used": 160,
+        "confidence_score": 0.87,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "analysis_a1cd31a5-fb7c-4b72-9735-87b7ae0d7ab5",
+      "timestamp": "2025-08-19T12:05:40.722745-07:00",
+      "event_type": "analysis",
+      "title": "Diagnosis Assistance Analysis",
+      "description": "Analysis 1 for session 2: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "a1cd31a5-fb7c-4b72-9735-87b7ae0d7ab5",
+        "session_id": "76f3a9b8-dbbf-4e47-a078-9ce3e716fefe",
+        "analysis_type": "diagnosis_assistance",
+        "processing_time": 5.5,
+        "tokens_used": 160,
+        "confidence_score": 0.87,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "session_76f3a9b8-dbbf-4e47-a078-9ce3e716fefe",
+      "timestamp": "2025-08-19T12:00:40.722745-07:00",
+      "event_type": "session",
+      "title": "follow-up Session",
+      "description": "Session with Dr. Test 2",
+      "severity": "medium",
+      "duration_minutes": 30,
+      "metadata": {
+        "session_id": "76f3a9b8-dbbf-4e47-a078-9ce3e716fefe",
+        "practitioner": "Dr. Test 2",
+        "visit_type": "follow-up",
+        "status": "completed",
+        "notes": "Session 2 - Patient progress evaluation"
+      },
+      "recordings": 1,
+      "analyses": 2
+    },
+    {
+      "id": "analysis_ca43f6ef-5f27-4aae-bc9b-283359b3923d",
+      "timestamp": "2025-08-12T12:08:40.729146-07:00",
+      "event_type": "analysis",
+      "title": "Treatment Recommendation Analysis",
+      "description": "Analysis 2 for session 3: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "ca43f6ef-5f27-4aae-bc9b-283359b3923d",
+        "session_id": "71a40329-8e9e-4417-b2b0-2976767c8bef",
+        "analysis_type": "treatment_recommendation",
+        "processing_time": 5.8,
+        "tokens_used": 170,
+        "confidence_score": 0.89,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "analysis_528d244c-1fe1-4463-9d96-0970d52f963e",
+      "timestamp": "2025-08-12T12:05:40.729146-07:00",
+      "event_type": "analysis",
+      "title": "Diagnosis Assistance Analysis",
+      "description": "Analysis 1 for session 3: Patient shows positive response to treatment",
+      "severity": "medium",
+      "metadata": {
+        "analysis_id": "528d244c-1fe1-4463-9d96-0970d52f963e",
+        "session_id": "71a40329-8e9e-4417-b2b0-2976767c8bef",
+        "analysis_type": "diagnosis_assistance",
+        "processing_time": 5.8,
+        "tokens_used": 170,
+        "confidence_score": 0.89,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "session_71a40329-8e9e-4417-b2b0-2976767c8bef",
+      "timestamp": "2025-08-12T12:00:40.729146-07:00",
+      "event_type": "session",
+      "title": "consultation Session",
+      "description": "Session with Dr. Test 3",
+      "severity": "medium",
+      "duration_minutes": 30,
+      "metadata": {
+        "session_id": "71a40329-8e9e-4417-b2b0-2976767c8bef",
+        "practitioner": "Dr. Test 3",
+        "visit_type": "consultation",
+        "status": "completed",
+        "notes": "Session 3 - Patient progress evaluation"
+      },
+      "recordings": 1,
+      "analyses": 2
+    },
+    {
+      "id": "analysis_cb7b9503-0292-480a-a3a7-34483b80630c",
+      "timestamp": "2025-08-05T12:08:40.733201-07:00",
+      "event_type": "analysis",
+      "title": "Treatment Recommendation Analysis",
+      "description": "Analysis 2 for session 4: Patient shows positive response to treatment",
+      "severity": "low",
+      "metadata": {
+        "analysis_id": "cb7b9503-0292-480a-a3a7-34483b80630c",
+        "session_id": "aecb1aca-d7a7-4994-861d-fea433ba45e3",
+        "analysis_type": "treatment_recommendation",
+        "processing_time": 6.1,
+        "tokens_used": 180,
+        "confidence_score": 0.9099999999999999,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "analysis_58687d41-79f5-405b-a4eb-8778851caa68",
+      "timestamp": "2025-08-05T12:05:40.733201-07:00",
+      "event_type": "analysis",
+      "title": "Diagnosis Assistance Analysis",
+      "description": "Analysis 1 for session 4: Patient shows positive response to treatment",
+      "severity": "low",
+      "metadata": {
+        "analysis_id": "58687d41-79f5-405b-a4eb-8778851caa68",
+        "session_id": "aecb1aca-d7a7-4994-861d-fea433ba45e3",
+        "analysis_type": "diagnosis_assistance",
+        "processing_time": 6.1,
+        "tokens_used": 180,
+        "confidence_score": 0.9099999999999999,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "session_aecb1aca-d7a7-4994-861d-fea433ba45e3",
+      "timestamp": "2025-08-05T12:00:40.733201-07:00",
+      "event_type": "session",
+      "title": "follow-up Session",
+      "description": "Session with Dr. Test 4",
+      "severity": "medium",
+      "duration_minutes": 30,
+      "metadata": {
+        "session_id": "aecb1aca-d7a7-4994-861d-fea433ba45e3",
+        "practitioner": "Dr. Test 4",
+        "visit_type": "follow-up",
+        "status": "completed",
+        "notes": "Session 4 - Patient progress evaluation"
+      },
+      "recordings": 1,
+      "analyses": 2
+    },
+    {
+      "id": "analysis_923fc58b-68c3-466d-91c7-28ea5e1e7ecc",
+      "timestamp": "2025-07-29T12:08:40.737069-07:00",
+      "event_type": "analysis",
+      "title": "Treatment Recommendation Analysis",
+      "description": "Analysis 2 for session 5: Patient shows positive response to treatment",
+      "severity": "low",
+      "metadata": {
+        "analysis_id": "923fc58b-68c3-466d-91c7-28ea5e1e7ecc",
+        "session_id": "6b26f0aa-8c54-4262-b34a-378a7bafc64d",
+        "analysis_type": "treatment_recommendation",
+        "processing_time": 6.4,
+        "tokens_used": 190,
+        "confidence_score": 0.9299999999999999,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "analysis_9804a3e8-6382-4ea8-aaab-4226ff80b838",
+      "timestamp": "2025-07-29T12:05:40.737069-07:00",
+      "event_type": "analysis",
+      "title": "Diagnosis Assistance Analysis",
+      "description": "Analysis 1 for session 5: Patient shows positive response to treatment",
+      "severity": "low",
+      "metadata": {
+        "analysis_id": "9804a3e8-6382-4ea8-aaab-4226ff80b838",
+        "session_id": "6b26f0aa-8c54-4262-b34a-378a7bafc64d",
+        "analysis_type": "diagnosis_assistance",
+        "processing_time": 6.4,
+        "tokens_used": 190,
+        "confidence_score": 0.9299999999999999,
+        "source_attributed": true,
+        "source_count": 1
+      }
+    },
+    {
+      "id": "session_6b26f0aa-8c54-4262-b34a-378a7bafc64d",
+      "timestamp": "2025-07-29T12:00:40.737069-07:00",
+      "event_type": "session",
+      "title": "consultation Session",
+      "description": "Session with Dr. Test 5",
+      "severity": "medium",
+      "duration_minutes": 30,
+      "metadata": {
+        "session_id": "6b26f0aa-8c54-4262-b34a-378a7bafc64d",
+        "practitioner": "Dr. Test 5",
+        "visit_type": "consultation",
+        "status": "completed",
+        "notes": "Session 5 - Patient progress evaluation"
+      },
+      "recordings": 1,
+      "analyses": 2
+    }
+  ],
+  "health_metrics": [
+    {
+      "name": "Session Frequency",
+      "value": 1.3,
+      "unit": "sessions/week",
+      "trend": "stable",
+      "category": "engagement",
+      "description": "Frequency of healthcare visits"
+    },
+    {
+      "name": "Analysis Completion Rate",
+      "value": 100.0,
+      "unit": "percentage",
+      "trend": "improving",
+      "category": "quality",
+      "description": "Percentage of successful medical analyses"
+    },
+    {
+      "name": "Medical Source Attribution Rate",
+      "value": 100.0,
+      "unit": "percentage",
+      "trend": "improving",
+      "category": "compliance",
+      "description": "Percentage of analyses with proper medical source citations",
+      "compliance_critical": true
+    },
+    {
+      "name": "Average Analysis Processing Time",
+      "value": 5.8,
+      "unit": "seconds",
+      "trend": "improving",
+      "category": "performance",
+      "description": "Average time to complete medical analysis"
+    },
+    {
+      "name": "Average Diagnosis Confidence",
+      "value": 0.89,
+      "unit": "score",
+      "trend": "stable",
+      "category": "accuracy",
+      "description": "Average confidence level in medical diagnoses"
+    }
+  ],
+  "visual_data": [
+    {
+      "chart_type": "timeline",
+      "title": "Session History",
+      "data_points": [
+        {
+          "timestamp": "2025-08-26T12:00:40.715731-07:00",
+          "value": 1,
+          "label": "consultation",
+          "category": "sessions",
+          "metadata": {
+            "practitioner": "Dr. Test 1",
+            "status": "completed",
+            "duration": 30
+          }
+        },
+        {
+          "timestamp": "2025-08-19T12:00:40.722745-07:00",
+          "value": 1,
+          "label": "follow-up",
+          "category": "sessions",
+          "metadata": {
+            "practitioner": "Dr. Test 2",
+            "status": "completed",
+            "duration": 30
+          }
+        },
+        {
+          "timestamp": "2025-08-12T12:00:40.729146-07:00",
+          "value": 1,
+          "label": "consultation",
+          "category": "sessions",
+          "metadata": {
+            "practitioner": "Dr. Test 3",
+            "status": "completed",
+            "duration": 30
+          }
+        },
+        {
+          "timestamp": "2025-08-05T12:00:40.733201-07:00",
+          "value": 1,
+          "label": "follow-up",
+          "category": "sessions",
+          "metadata": {
+            "practitioner": "Dr. Test 4",
+            "status": "completed",
+            "duration": 30
+          }
+        },
+        {
+          "timestamp": "2025-07-29T12:00:40.737069-07:00",
+          "value": 1,
+          "label": "consultation",
+          "category": "sessions",
+          "metadata": {
+            "practitioner": "Dr. Test 5",
+            "status": "completed",
+            "duration": 30
+          }
+        }
+      ],
+      "y_axis_label": "Sessions",
+      "color_scheme": "blue"
+    },
+    {
+      "chart_type": "scatter",
+      "title": "Analysis Confidence Over Time",
+      "data_points": [
+        {
+          "timestamp": "2025-08-26T12:05:40.715731-07:00",
+          "value": 0.85,
+          "label": "Diagnosis Assistance",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.2,
+            "tokens_used": 150,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-26T12:08:40.715731-07:00",
+          "value": 0.85,
+          "label": "Treatment Recommendation",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.2,
+            "tokens_used": 150,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-19T12:05:40.722745-07:00",
+          "value": 0.87,
+          "label": "Diagnosis Assistance",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.5,
+            "tokens_used": 160,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-19T12:08:40.722745-07:00",
+          "value": 0.87,
+          "label": "Treatment Recommendation",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.5,
+            "tokens_used": 160,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-12T12:05:40.729146-07:00",
+          "value": 0.89,
+          "label": "Diagnosis Assistance",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.8,
+            "tokens_used": 170,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-12T12:08:40.729146-07:00",
+          "value": 0.89,
+          "label": "Treatment Recommendation",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 5.8,
+            "tokens_used": 170,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-05T12:05:40.733201-07:00",
+          "value": 0.9099999999999999,
+          "label": "Diagnosis Assistance",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 6.1,
+            "tokens_used": 180,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-08-05T12:08:40.733201-07:00",
+          "value": 0.9099999999999999,
+          "label": "Treatment Recommendation",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 6.1,
+            "tokens_used": 180,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-07-29T12:05:40.737069-07:00",
+          "value": 0.9299999999999999,
+          "label": "Diagnosis Assistance",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 6.4,
+            "tokens_used": 190,
+            "source_count": 1
+          }
+        },
+        {
+          "timestamp": "2025-07-29T12:08:40.737069-07:00",
+          "value": 0.9299999999999999,
+          "label": "Treatment Recommendation",
+          "category": "analysis_confidence",
+          "metadata": {
+            "processing_time": 6.4,
+            "tokens_used": 190,
+            "source_count": 1
+          }
+        }
+      ],
+      "y_axis_label": "Confidence Score",
+      "color_scheme": "green"
+    },
+    {
+      "chart_type": "line",
+      "title": "Medical Source Attribution Trend",
+      "data_points": [
+        {
+          "timestamp": "2025-08-01T00:00:00",
+          "value": 100.0,
+          "label": "2025-08",
+          "category": "source_attribution",
+          "metadata": {
+            "total_analyses": 8,
+            "attributed_analyses": 8
+          }
+        },
+        {
+          "timestamp": "2025-07-01T00:00:00",
+          "value": 100.0,
+          "label": "2025-07",
+          "category": "source_attribution",
+          "metadata": {
+            "total_analyses": 2,
+            "attributed_analyses": 2
+          }
+        }
+      ],
+      "y_axis_label": "Attribution Rate (%)",
+      "color_scheme": "red",
+      "compliance_critical": true
+    }
+  ],
+  "health_trends": {
+    "session_frequency": "improving",
+    "analysis_quality": "stable",
+    "overall_trend": "stable",
+    "trend_analysis": "Patient engagement is increasing."
+  },
+  "structured_summary": {
+    "patient_overview": {
+      "total_sessions": 5,
+      "active_period_days": 27,
+      "care_quality_rating": "needs_improvement",
+      "compliance_status": "compliant"
+    },
+    "key_insights": [
+      {
+        "type": "compliance_success",
+        "severity": "low",
+        "message": "Excellent medical source attribution rate of 100.0%",
+        "recommendation": "Continue current practices for healthcare compliance"
+      }
+    ],
+    "recommendations": [],
+    "next_actions": [],
+    "summary_generated_at": "2025-08-26T12:00:40.772256"
+  },
+  "statistics": {
+    "total_sessions": 5,
+    "completed_sessions": 5,
+    "total_analyses": 10,
+    "timeline_events_count": 15
+  },
+  "generated_at": "2025-08-26T12:00:40.772295"
+}

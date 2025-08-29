@@ -10,7 +10,8 @@ from app.schemas.recording import (
     RecordingResponse,
     RecordingStartRequest,
     RecordingStopRequest,
-    RecordingStatusEnum
+    RecordingStatusEnum,
+    LanguageEnum
 )
 from app.services.audio_service import audio_service
 from app.core.config import settings
@@ -179,14 +180,16 @@ async def process_audio_complete(recording_id: UUID, db: Session):
         logger.info(f"Transcription result: {'Success' if transcript else 'Failed'}")
         
         if transcript:
-            # Step 3: Diarize if enabled
-            if settings.ENABLE_SPEAKER_DIARIZATION:
+            # Step 3: Diarize if enabled (but skip for Kinyarwanda as it doesn't support diarization)
+            if settings.ENABLE_SPEAKER_DIARIZATION and recording.language != LanguageEnum.KINYARWANDA:
                 logger.info("Starting diarization...")
                 # Refresh recording to get updated transcript_segments
                 db.refresh(recording)
                 recording_repo.update(recording_id, {'status': RecordingStatusEnum.DIARIZING})
                 diarization_success = await audio_service.perform_speaker_diarization(recording, db)
                 logger.info(f"Diarization result: {'Success' if diarization_success else 'Failed'}")
+            elif recording.language == LanguageEnum.KINYARWANDA:
+                logger.info("Skipping diarization for Kinyarwanda (not supported)")
             
             # Final status: completed
             logger.info("Setting status to completed")

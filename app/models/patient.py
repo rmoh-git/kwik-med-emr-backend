@@ -26,7 +26,16 @@ class Patient(Base):
     address = Column(Text, nullable=True)
     emergency_contact_name = Column(String(100), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
-    medical_record_number = Column(String(50), nullable=False, unique=True, index=True, default=lambda: f"MRN-{uuid.uuid4().hex[:12].upper()}")
+    
+    # Insurance and ID information
+    national_id = Column(String(20), nullable=True, index=True)  # National ID/SSN
+    insurance_provider = Column(String(100), nullable=True)
+    insurance_coverage_percentage = Column(String(10), nullable=True)  # e.g., "80%", "100%"
+    
+    # MRN now uses patient UUID directly
+    @property
+    def medical_record_number(self):
+        return str(self.id)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -36,7 +36,7 @@ class TreatmentRecommendation(BaseModel):
 
 class AnalysisResult(BaseModel):
     summary: str
-    key_findings: List[str]
+    key_findings: Optional[List[str]] = None  # Made optional for backward compatibility
     diagnoses: Optional[List[DiagnosisRecommendation]] = None
     treatments: Optional[List[TreatmentRecommendation]] = None
     follow_up_recommendations: Optional[List[str]] = None
@@ -47,7 +47,6 @@ class AnalysisResult(BaseModel):
 
 class AnalysisBase(BaseModel):
     session_id: UUID
-    analysis_type: AnalysisTypeEnum
     prompt_context: Optional[str] = None
 
 
@@ -86,6 +85,5 @@ class AnalysisListResponse(BaseModel):
 
 class AnalysisRequest(BaseModel):
     session_id: UUID
-    analysis_type: AnalysisTypeEnum = AnalysisTypeEnum.GENERAL_ANALYSIS
     include_patient_history: bool = Field(default=True)
     custom_prompt: Optional[str] = None

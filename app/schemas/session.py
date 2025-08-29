@@ -16,7 +16,6 @@ class SessionBase(BaseModel):
     practitioner_name: str = Field(..., min_length=1, max_length=100)
     practitioner_id: Optional[str] = Field(None, max_length=50)
     visit_type: str = Field(..., min_length=1, max_length=100)
-    chief_complaint: Optional[str] = Field(None, max_length=500)
     notes: Optional[str] = None
 
 
@@ -24,7 +23,6 @@ class SessionCreate(BaseModel):
     patient_id: UUID
     practitioner_id: UUID
     visit_type: Optional[str] = Field(default="consultation", max_length=100)
-    chief_complaint: Optional[str] = Field(None, max_length=500)
     notes: Optional[str] = None
 
 
@@ -32,7 +30,6 @@ class SessionUpdate(BaseModel):
     practitioner_name: Optional[str] = Field(None, min_length=1, max_length=100)
     practitioner_id: Optional[str] = Field(None, max_length=50)
     visit_type: Optional[str] = Field(None, min_length=1, max_length=100)
-    chief_complaint: Optional[str] = Field(None, max_length=500)
     notes: Optional[str] = None
     status: Optional[SessionStatusEnum] = None
 
