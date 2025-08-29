@@ -38,7 +38,7 @@ jobs:
           docker run -d \
             --restart unless-stopped \
             --name kwik-med-emr \
-            -p 3034:3000 \
+            -p 3034:8000 \
             kwik-med-emr
 
       - name: Send Slack notification on success
